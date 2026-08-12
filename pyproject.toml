@@ -1,0 +1,64 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "motionviewer"
+version = "0.1.0"
+description = "Reproducible Blender rendering for SMPL-X motion sequences and comparisons."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "Hetian Guo" }]
+keywords = ["blender", "motion", "smpl-x", "visualization"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics :: 3D Rendering",
+]
+dependencies = [
+    "numpy>=1.24",
+    "Pillow>=10.0",
+    "PyYAML>=6.0",
+    "typer>=0.12",
+]
+
+[dependency-groups]
+dev = [
+    "build>=1.2",
+    "pytest>=8.0",
+    "ruff>=0.12",
+]
+
+[project.scripts]
+motionviewer = "motionviewer.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/OMEGA-i/MotionViewer"
+Documentation = "https://github.com/OMEGA-i/MotionViewer/tree/main/docs"
+Issues = "https://github.com/OMEGA-i/MotionViewer/issues"
+Source = "https://github.com/OMEGA-i/MotionViewer"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 110
+extend-exclude = ["data", "outputs"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*.py" = ["E402"]
+"src/motionviewer/blender/runner.py" = ["E402"]

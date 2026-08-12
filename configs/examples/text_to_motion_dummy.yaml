@@ -1,0 +1,64 @@
+task:
+  mode: text_to_motion
+  instruction: "a person walks forward with relaxed arms"
+
+inputs:
+  - path: ../../data/examples/smplx_body22_fitted_aa/gt.smplx.npz
+    label: t2m_sample
+    format: smplx_body22_fitted_aa
+
+timeline:
+  show_prefix: false
+  end_frame: 60
+
+layout:
+  mode: single
+  alignment: start_root
+  spacing: 1.6
+  cell_padding: 0.5
+
+body:
+  backend: blender_smplx_addon
+  gender: neutral
+  neutral_hands_face: true
+
+style:
+  palette: soft_paper
+  temporal_ramp: light_to_dark
+  material_roughness: 0.5
+  ghost_snapshots: 4
+  prefix:
+    mode: none
+  ghost:
+    mode: trail
+    include_prefix: false
+    warmup_frames: 3
+    start_lightness: 0.65
+    end_lightness: 0.10
+    alpha: 0.16
+  labels:
+    mode: world
+    show_instruction: false
+
+ground:
+  mode: trajectory_carpet
+  opacity: 0.16
+  carpet_padding: 0.4
+
+camera:
+  preset: three_quarter
+  orthographic: true
+  margin: 1.2
+
+render:
+  engine: BLENDER_EEVEE
+  resolution: [1280, 720]
+  samples: 32
+  transparent_background: true
+  frame_format: PNG
+
+output:
+  directory: ../../outputs/text_to_motion_dummy
+  mp4_name: text_to_motion_dummy.mp4
+  keep_frames: true
+  overwrite: true

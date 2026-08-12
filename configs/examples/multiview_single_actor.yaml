@@ -1,0 +1,62 @@
+task:
+  mode: continuation
+
+inputs:
+  - path: ../../data/examples/smplx_body22_fitted_aa/omegamotiongpt.smplx.npz
+    label: ours_150m
+    format: smplx_body22_fitted_aa
+
+timeline:
+  show_prefix: true
+
+layout:
+  mode: single
+  alignment: start_root
+
+body:
+  backend: blender_smplx_addon
+  gender: neutral
+  neutral_hands_face: true
+
+style:
+  palette: soft_paper
+  temporal_ramp: light_to_dark
+  material_roughness: 0.5
+  ghost_snapshots: 4
+  prefix:
+    mode: attached
+    color: [0.74, 0.76, 0.76]
+    ghost_count: 2
+  ghost:
+    mode: trail
+    include_prefix: false
+    warmup_frames: 3
+    alpha: 0.16
+  labels:
+    mode: legend
+    show_instruction: false
+
+ground:
+  mode: trajectory_carpet
+  opacity: 0.16
+  carpet_padding: 0.4
+
+camera:
+  orthographic: true
+  margin: 1.2
+  views:
+    - preset: three_quarter
+    - preset: front
+    - preset: side
+
+render:
+  engine: BLENDER_EEVEE
+  resolution: [1920, 1080]
+  samples: 64
+  transparent_background: true
+
+output:
+  directory: ../../outputs/multiview_single_actor
+  mp4_name: unused_when_views_set.mp4
+  keep_frames: true
+  overwrite: true

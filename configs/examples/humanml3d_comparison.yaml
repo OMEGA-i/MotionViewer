@@ -1,0 +1,50 @@
+# Single-actor HumanML3D-style example. Render each baseline separately for PPT.
+task:
+  mode: continuation
+
+inputs:
+  - path: ../../data/examples/smplx_humanml3d/gt.smplx.npz
+    label: gt
+    format: smplx_body22_fitted_aa
+
+timeline:
+  show_prefix: true
+
+layout:
+  mode: single
+  alignment: start_root
+
+body:
+  backend: blender_smplx_addon
+  gender: neutral
+
+style:
+  palette: soft_paper
+  temporal_ramp: light_to_dark
+  ghost_snapshots: 4
+  labels:
+    mode: legend
+
+ground:
+  mode: trajectory_carpet
+  opacity: 0.16
+
+camera:
+  orthographic: true
+  margin: 1.2
+  views:
+    - preset: three_quarter
+    - preset: front
+    - preset: side
+
+render:
+  engine: BLENDER_EEVEE
+  resolution: [1920, 1080]
+  samples: 64
+  transparent_background: true
+
+output:
+  directory: ../../outputs/humanml3d_comparison
+  mp4_name: humanml3d.mp4
+  keep_frames: true
+  overwrite: true

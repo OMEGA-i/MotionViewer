@@ -1,0 +1,32 @@
+{
+  "cid": "M013567",
+  "track": "table2_hml3d_native",
+  "predict_ratio": 0.2,
+  "T": 97,
+  "prefix_T": 19,
+  "fps": 20.0,
+  "text": "",
+  "ADE": {
+    "motiongpt3": {
+      "ADE": 3.1442720890045166,
+      "FDE": 3.7352566719055176,
+      "T": 97
+    },
+    "motiongpt": {
+      "ADE": 3.1910815238952637,
+      "FDE": 2.390658378601074,
+      "T": 97
+    },
+    "mdm": {
+      "ADE": 2.914415121078491,
+      "FDE": 2.309868812561035,
+      "T": 97
+    }
+  },
+  "note": "Native HumanML3D test continuation; shared GT prefix pasted for viz; future = each model's pred. joints from recover_from_ric(official new_joint_vecs).",
+  "models": [
+    "motiongpt3",
+    "motiongpt",
+    "mdm"
+  ]
+}

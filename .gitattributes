@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+*.fbx binary
+*.npz binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp4 binary
+*.tar.gz binary

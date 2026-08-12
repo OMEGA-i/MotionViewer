@@ -1,0 +1,40 @@
+# Python environments and generated metadata
+.venv/
+.python-version.local
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Local editor and agent state
+.DS_Store
+.idea/
+.vscode/
+.agents/
+.claude/
+skills-lock.json
+
+# Local motion data. Only curated, redistributable examples are versioned.
+data/raw/
+data/local/
+data/packages/
+data/soma_source_picks_*/
+data/soma_source_picks_*.zip
+data/examples/*.tar.gz
+
+# Generated configs and render outputs
+configs/generated/
+outputs/
+*.mp4
+*.mov
+*.avi
+
+# Third-party character assets are local-only. Several bundled PMX files
+# explicitly prohibit redistribution; do not weaken these rules.
+assets/**
+!assets/README.md

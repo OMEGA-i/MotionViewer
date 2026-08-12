@@ -1,0 +1,61 @@
+# Debug-only overlay of FBX vs SMPL-X backends for the same motion.
+# For paper figures, render each backend in its own job instead.
+inputs:
+  - path: ../../data/examples/smplx_body22_fitted_aa/omegamotiongpt.smplx.npz
+    label: FBX (iron)
+    format: smplx_body22_fitted_aa
+    body:
+      backend: fbx_skeleton
+      gender: neutral
+      fbx_path: ../../assets/fbx/iron.fbx
+      fbx_scale: 1.0
+      bone_map: auto
+  - path: ../../data/examples/smplx_body22_fitted_aa/gt.smplx.npz
+    label: SMPL-X (baseline)
+    format: smplx_body22_fitted_aa
+    body:
+      backend: blender_smplx_addon
+      gender: neutral
+task:
+  mode: continuation
+  instruction: null
+timeline:
+  show_prefix: true
+layout:
+  mode: overlay
+  alignment: start_root
+body:
+  backend: blender_smplx_addon
+  gender: neutral
+style:
+  palette: soft_paper
+  temporal_ramp: light_to_dark
+  ghost_snapshots: 4
+  prefix:
+    mode: attached
+    color: [0.74, 0.76, 0.76]
+    ghost_count: 2
+  ghost:
+    mode: trail
+    include_prefix: false
+    warmup_frames: 3
+    alpha: 0.16
+  labels:
+    mode: legend
+    show_instruction: false
+ground:
+  mode: none
+camera:
+  preset: three_quarter
+  orthographic: true
+  margin: 1.2
+render:
+  engine: BLENDER_EEVEE
+  resolution: [1920, 1080]
+  samples: 64
+  transparent_background: true
+output:
+  directory: ../../outputs/fbx_vs_smplx
+  mp4_name: fbx_vs_smplx.mp4
+  keep_frames: true
+  overwrite: true

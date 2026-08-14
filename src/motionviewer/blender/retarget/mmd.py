@@ -52,6 +52,21 @@ _TWIST_ALIASES: dict[str, tuple[str, ...]] = {
 # fighting the foot IK.  Every other joint is driven.
 _SKIP_DRIVE: frozenset[str] = frozenset({"toe.L", "toe.R"})
 
+# Canonical roles a rig may legitimately not have.
+_OPTIONAL_CANONICAL: frozenset[str] = frozenset({"spine-1"})
+
+# Source joints that may go unmapped without losing their motion, and the
+# canonical role whose absence excuses them.
+#
+# Transfers apply global rotations, so an intermediate source joint that has no
+# target is not dropped: its rotation is already contained in the mapped
+# descendant.  A two-segment MMD upper body (``上半身``/``上半身2`` with no
+# ``上半身3``, as on Honkai rigs) therefore still reproduces
+# ``spine1 . spine2 . spine3`` exactly on ``上半身2`` — only the curve between
+# them is coarser.  If ``上半身3`` *is* present, a missing ``spine2`` mapping is
+# a real fault and still fails.
+_COLLAPSIBLE_SOURCES: dict[str, str] = {"spine2": "spine-1"}
+
 # How each joint's rest orientation relates to SMPL-X, and therefore which
 # transfer is correct.  See mmd_solve for the derivation.
 #
@@ -190,16 +205,12 @@ def inspect_mmd_rig(armature: Any, twist_axes: dict[str, tuple[float, float, flo
     for canonical, aliases in _CANONICAL_TO_MMD_ALIASES.items():
         chosen = _pick(aliases, available, used)
         if chosen is None:
-            if canonical in {"spine-1"}:
+            if canonical in _OPTIONAL_CANONICAL:
                 continue
             errors.append(f"missing MMD bone for {canonical}: {aliases[0]}")
             continue
         canonical_map[canonical] = chosen
         used.add(chosen)
-
-    if "spine-1" not in canonical_map and "chest" in canonical_map:
-        # Two-spine models: chest already owns 上半身2.
-        pass
 
     smplx_map = {
         smplx_name: canonical_map[canonical]
@@ -207,6 +218,9 @@ def inspect_mmd_rig(armature: Any, twist_axes: dict[str, tuple[float, float, flo
         if canonical in canonical_map and canonical not in _SKIP_DRIVE
     }
     skip_sources = {name for name, canonical in SMPLX_TO_CANONICAL.items() if canonical in _SKIP_DRIVE}
+    skip_sources |= {
+        source for source, canonical in _COLLAPSIBLE_SOURCES.items() if canonical not in canonical_map
+    }
     required = tuple(SMPLX_TO_CANONICAL)
     missing = [name for name in required if name not in smplx_map and name not in skip_sources]
     if missing:

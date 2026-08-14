@@ -558,3 +558,34 @@ def test_twist_smoothing_leaves_the_aim_untouched() -> None:
         return float(np.max(angles))
 
     assert roll_steps(smoothed) < roll_steps(frames) * 0.6
+
+
+def test_two_segment_upper_body_collapses_spine2() -> None:
+    """Honkai rigs ship 上半身/上半身2 with no 上半身3.
+
+    Transfers are global, so spine3's rotation on 上半身2 already contains
+    spine1 and spine2. Refusing the rig would be wrong; silently dropping a
+    mapped joint would not be.
+    """
+    two_segment = [name for name in YOIMIYA_CORE if name != "上半身3"]
+    inspection = inspect_mmd_rig(_Armature(two_segment))
+    assert inspection.valid, inspection.errors
+    assert inspection.smplx_map["spine1"] == "上半身"
+    assert inspection.smplx_map["spine3"] == "上半身2"
+    assert "spine2" not in inspection.smplx_map
+    # Every other joint is still required.
+    assert inspection.smplx_map["pelvis"] == "腰"
+    assert inspection.smplx_map["left_wrist"] == "左手首"
+
+
+def test_missing_spine2_still_fails_when_the_rig_has_three_segments() -> None:
+    """The excuse is the rig's shape, not a blanket exemption."""
+    from motionviewer.blender.retarget.mmd import _CANONICAL_TO_MMD_ALIASES
+
+    # A rig with 上半身3 present must map spine2; drop 上半身2 so `chest` is the
+    # one that goes missing and the mapping is genuinely incomplete.
+    assert _CANONICAL_TO_MMD_ALIASES["spine-1"] == ("上半身3",)
+    broken = [name for name in YOIMIYA_CORE if name != "上半身2"]
+    inspection = inspect_mmd_rig(_Armature(broken))
+    assert not inspection.valid
+    assert any("上半身2" in message or "chest" in message for message in inspection.errors)

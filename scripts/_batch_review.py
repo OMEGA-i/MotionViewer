@@ -25,9 +25,25 @@ def main() -> None:
     parser.add_argument("--resolution", type=int, default=640)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--extra-views", default="", help="Clip name substrings that also get a front view")
+    parser.add_argument(
+        "--scores",
+        type=Path,
+        default=None,
+        help="score_motion_quality.py output; renders its shortlist in order instead of the whole directory",
+    )
+    parser.add_argument("--toon", action="store_true", help="Cel shading, outline and floor shadow")
+    parser.add_argument("--asset", type=Path, default=ASSET)
     args = parser.parse_args()
 
-    clips = sorted(path for path in args.clips.glob("test_rec_*") if path.is_dir())
+    if args.scores is not None:
+        # Score order, so --limit takes the best rather than the alphabetically
+        # first. Clips are already ranked clean-then-expressive by the scorer.
+        ranked = json.loads(args.scores.read_text(encoding="utf-8"))["clips"]
+        clips = [args.clips / item["clip"] for item in ranked if (args.clips / item["clip"]).is_dir()]
+        captions_by_clip = {item["clip"]: item.get("caption", "") for item in ranked}
+    else:
+        clips = sorted(path for path in args.clips.glob("test_rec_*") if path.is_dir())
+        captions_by_clip = {}
     if args.limit > 0:
         clips = clips[: args.limit]
 
@@ -39,9 +55,9 @@ def main() -> None:
         if not motion.is_file():
             print(f"[{index}/{len(clips)}] skip {clip.name}: no {args.source} params")
             continue
-        caption = ""
         label = clip.name.replace("test_rec_", "")
-        if meta_path.is_file():
+        caption = captions_by_clip.get(clip.name, "")
+        if not caption and meta_path.is_file():
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
             caption = str(meta.get("caption") or "")
         views = args.views
@@ -56,7 +72,7 @@ def main() -> None:
             str(ROOT / "scripts/render_mmd_compare.py"),
             "--",
             "--asset",
-            str(ASSET),
+            str(args.asset),
             "--motion",
             str(motion),
             "--output",
@@ -68,6 +84,8 @@ def main() -> None:
             "--caption",
             caption,
         ]
+        if args.toon:
+            command.append("--toon")
         result = subprocess.run(command, capture_output=True, text=True)
         if result.returncode != 0:
             tail = "\n".join(result.stdout.strip().splitlines()[-6:])

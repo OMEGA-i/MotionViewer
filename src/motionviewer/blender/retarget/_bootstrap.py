@@ -54,6 +54,7 @@ def bootstrap_input(
     layout_offset: tuple[float, float, float],
     unit_scale: float = 1.0,
     frame_start: int = 1,
+    mmd_physics: bool = False,
 ) -> BootstrapOutput:
     """Load SMPL-X data, create driver armature, import FBX, calibrate.
 
@@ -105,6 +106,7 @@ def bootstrap_input(
             unit_scale=unit_scale,
             frame_start=frame_start,
             lookat_motion=lookat_motion,
+            physics=mmd_physics,
         )
 
     require_smplx_addon()
@@ -220,6 +222,7 @@ def _bootstrap_mmd(
     unit_scale: float,
     frame_start: int,
     lookat_motion: SmplxLookatMotion | None,
+    physics: bool = False,
 ) -> BootstrapOutput:
     from ..mmd_import import import_pmx_character
     from .mmd import inspect_mmd_rig
@@ -228,7 +231,7 @@ def _bootstrap_mmd(
         raise ValueError("MMD retarget requires joints22 in the motion NPZ")
 
     scale = float(fbx_scale) if fbx_scale not in {0.0, 1.0} else 0.08
-    armature, meshes = import_pmx_character(bpy, path, label=label, scale=scale)
+    armature, meshes = import_pmx_character(bpy, path, label=label, scale=scale, physics=physics)
     mute_mmd_ik(armature)
     inspection = inspect_mmd_rig(armature)
     if not inspection.valid:

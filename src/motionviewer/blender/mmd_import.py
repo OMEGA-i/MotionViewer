@@ -44,15 +44,25 @@ def import_pmx_character(
     *,
     label: str,
     scale: float = 0.08,
+    physics: bool = False,
 ) -> tuple[Any, list[Any]]:
-    """Import a PMX file and return ``(armature, meshes)``."""
+    """Import a PMX file and return ``(armature, meshes)``.
+
+    ``physics`` also imports the rigid bodies the PMX carries for hair, skirts and
+    accessories.  They are imported for their **metadata only** — which bone each
+    one drives and whether it is dynamic — because that is how
+    ``mmd_spring`` learns what should swing.  ``mmd_tools``'s own rig build is
+    deliberately not run: it disconnects the physics bones from their parents so
+    the bodies can own them, and with the bodies gone those bones would float at
+    the armature origin and smear across the frame.
+    """
     ensure_mmd_tools()
     from mmd_tools.core.pmx.importer import PMXImporter  # type: ignore
 
     before = set(bpy.data.objects)
     PMXImporter().execute(
         filepath=str(path),
-        types={"MESH", "ARMATURE"},
+        types={"MESH", "ARMATURE", "PHYSICS"} if physics else {"MESH", "ARMATURE"},
         scale=float(scale),
         clean_model=True,
         remove_doubles=False,
@@ -67,7 +77,15 @@ def import_pmx_character(
 
     created = [obj for obj in bpy.data.objects if obj not in before]
     armatures = [obj for obj in created if getattr(obj, "type", None) == "ARMATURE"]
-    meshes = [obj for obj in created if getattr(obj, "type", None) == "MESH"]
+    # Rigid bodies are mesh objects too, so a plain type filter would hand 221
+    # collision proxies back as character geometry: they would be cel shaded,
+    # given outline shells, and counted in the camera bounds. mmd_tools tags
+    # everything it creates, so ask it instead.
+    meshes = [
+        obj
+        for obj in created
+        if getattr(obj, "type", None) == "MESH" and str(getattr(obj, "mmd_type", "NONE")) == "NONE"
+    ]
     if not armatures:
         raise RuntimeError(f"No armature found after importing {path}")
     armature = armatures[0]
@@ -77,4 +95,7 @@ def import_pmx_character(
     for obj in created:
         if getattr(obj, "type", None) not in {"ARMATURE", "MESH"}:
             obj.hide_render = True
+    if physics and bpy.context.scene.rigidbody_world is not None:
+        # Nothing simulates these; they are read and discarded by mmd_spring.
+        bpy.context.scene.rigidbody_world.enabled = False
     return armature, meshes

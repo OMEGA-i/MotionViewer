@@ -315,3 +315,41 @@ be noticed:
   `scripts/_diagnose_motion.py` measures both; nothing yet filters on them.
 - Face shadow is a flattened ramp, not the game's SDF map.
 - Fingers hold a static relaxed curl; body-22 has no hand pose.
+
+## Secondary motion
+
+Hair and skirts moving rigidly is most of why a fast source turn reads as violent,
+so the PMX's own rigid bodies were the obvious answer and did not work. Imported
+into Blender they are stable at rest and diverge as soon as the body moves: the
+masses and collision sizes are authored for MMD's solver and units — a 4 cm
+capsule carrying 2.5 kg — and retuning 221 bodies per character is not a bounded
+job. A rigid-body cache also forces every render to walk frames in order.
+
+`blender/mmd_spring.py` keeps the part of that data that is worth keeping and
+throws away the solver. The PMX says which bones should swing: a rigid body with
+physics mode 1 or 2 is dynamic, and the bone it names is a bone the artist wanted
+to move on its own. Those bones get a damped spring, solved here and baked to
+quaternion keys.
+
+Each bone's tip is pulled toward where it would be if the bone were rigid, carries
+its own velocity, and is then **projected back onto its own length**. Divergence is
+impossible by construction: the tip cannot leave a sphere around its own head, so
+there is no configuration in which hair stretches across the frame.
+
+Three things it does *not* do, each for a reason:
+
+- **No added gravity.** The model's rest pose is already the hanging pose, so the
+  artist has accounted for it. Adding gravity again drags every bone onto the
+  angle clamp and a ponytail becomes a vertical bar — which is exactly what the
+  first attempt looked like. What is wanted is lag, not sag.
+- **No collision.** A spring cannot know about the body, so a skirt can pass
+  through a leg on extreme poses. The angle clamp (38 deg) is what keeps that
+  rare rather than constant.
+- **It never touches a driven bone.** Those carry the motion and stay exact.
+
+The physics import is metadata-only, and `mmd_tools`'s own rig build is
+deliberately skipped: `Model.build()` disconnects the physics bones so the rigid
+bodies can own them, and once the bodies are deleted those bones float at the
+armature origin and smear across the frame. That was the second failed attempt.
+
+Pass `--spring` to `scripts/render_mmd_compare.py`.

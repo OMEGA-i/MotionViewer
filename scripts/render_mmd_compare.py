@@ -43,6 +43,11 @@ def main() -> None:
     parser.add_argument("--toon", action="store_true", help="Cel shading, outline, floor shadow")
     parser.add_argument("--no-outline", action="store_true", help="With --toon, skip the outline shell")
     parser.add_argument("--no-ground", action="store_true", help="With --toon, skip the floor")
+    parser.add_argument(
+        "--spring",
+        action="store_true",
+        help="Bake secondary motion onto the bones the PMX marks as dynamic",
+    )
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
 
     import bpy  # type: ignore
@@ -50,6 +55,7 @@ def main() -> None:
     from mathutils import Vector  # type: ignore
 
     from motionviewer.blender.camera import add_camera_for_bounds
+    from motionviewer.blender.mmd_spring import apply_secondary_motion
     from motionviewer.blender.mmd_toon import add_ground, add_outline, add_toon_lighting, apply_toon_shading
     from motionviewer.blender.render import _normalize_engine
     from motionviewer.blender.retarget.pipeline import create_fbx_actor_from_npz
@@ -78,6 +84,7 @@ def main() -> None:
         fbx_scale=0.08,
         retarget_mode="direct",
         mmd_polish={"enabled": not args.faithful},
+        mmd_physics=args.spring,
     )
     scene = bpy.context.scene
     frame_start = int(scene.frame_start)
@@ -186,6 +193,7 @@ def main() -> None:
         mins = np.minimum(mins, frame_mins)
         maxs = np.maximum(maxs, frame_maxs)
 
+    outline_shells: list = []
     if args.toon:
         report = apply_toon_shading(actor.mesh_objects)
         print(
@@ -193,11 +201,15 @@ def main() -> None:
         )
         add_toon_lighting(mins.tolist(), maxs.tolist())
         if not args.no_outline:
-            add_outline(actor.mesh_objects)
+            outline_shells = add_outline(actor.mesh_objects)
         if not args.no_ground:
             add_ground(mins.tolist(), maxs.tolist())
     else:
         add_lighting(mins.tolist(), maxs.tolist())
+    spring_info: dict = {"chains": 0}
+    if args.spring:
+        spring_info = apply_secondary_motion(bpy, actor.armature, frame_start=frame_start, num_frames=total)
+        print(f"spring: {json.dumps(spring_info, ensure_ascii=False)}")
     scene.render.engine = _normalize_engine("BLENDER_EEVEE")
     scene.render.resolution_x = args.resolution
     scene.render.resolution_y = args.resolution
@@ -218,7 +230,9 @@ def main() -> None:
             resolution=(args.resolution, args.resolution),
         )
         for panel in panels:
-            for obj in actor.mesh_objects:
+            # The outline shell is a separate object, so hiding only the
+            # character meshes leaves a black silhouette in the skeleton panel.
+            for obj in (*actor.mesh_objects, *outline_shells):
                 obj.hide_render = panel != "character"
             for obj in skeleton_objects:
                 obj.hide_render = panel != "skeleton"
@@ -239,6 +253,7 @@ def main() -> None:
                 "panels": panels,
                 "faithful": bool(args.faithful),
                 "toon": bool(args.toon),
+                "spring": spring_info,
                 "transfer": transfer.get("polish", {}),
             },
             ensure_ascii=False,

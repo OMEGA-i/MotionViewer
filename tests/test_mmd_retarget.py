@@ -610,3 +610,79 @@ def test_face_materials_are_found_by_which_ones_are_unlit() -> None:
 
     # A rig that shades everything has no unlit hint, so no face override.
     assert face_base_images([("面.png", True), ("衣.png", True)]) == set()
+
+
+class _SpringBone:
+    def __init__(self, name: str, parent: _SpringBone | None = None, length: float = 0.03) -> None:
+        self.name = name
+        self.parent = parent
+        self.length = length
+        self.children: list[_SpringBone] = []
+        if parent is not None:
+            parent.children.append(self)
+
+
+class _SpringArmature:
+    def __init__(self, bones: dict[str, _SpringBone]) -> None:
+        self.data = type("ArmatureData", (), {"bones": bones})()
+
+
+class _Rigid:
+    def __init__(self, bone: str, type_: str) -> None:
+        self.mmd_rigid = type("MmdRigid", (), {"bone": bone, "type": type_})()
+
+
+def _hair_rig() -> tuple[_SpringArmature, dict[str, _SpringBone]]:
+    head = _SpringBone("頭")
+    chain = [head]
+    for index in range(3):
+        chain.append(_SpringBone(f"髮_{index}", chain[-1]))
+    skirt_root = _SpringBone("裙_0", head)
+    _SpringBone("裙_1", skirt_root)
+    fork = _SpringBone("結_0", head)
+    _SpringBone("結_1a", fork)
+    _SpringBone("結_1b", fork)
+    bones = {bone.name: bone for bone in (*chain, skirt_root, *skirt_root.children, fork, *fork.children)}
+    return _SpringArmature(bones), bones
+
+
+def test_spring_bones_come_from_the_pmx_dynamic_flag() -> None:
+    """Which bones swing is the artist's decision, recorded in the PMX."""
+    from motionviewer.blender.mmd_spring import dynamic_spring_bones
+
+    armature, _ = _hair_rig()
+    bodies = [
+        _Rigid("髮_0", "1"),  # dynamic
+        _Rigid("髮_1", "2"),  # dynamic, position-locked
+        _Rigid("頭", "0"),  # follows its bone: not a spring
+        _Rigid("_shadow_髮_0", "1"),  # mmd_tools helper
+        _Rigid("absent", "1"),  # not on this rig
+    ]
+    assert dynamic_spring_bones(armature, bodies) == {"髮_0", "髮_1"}
+
+
+def test_spring_chains_stop_at_forks_and_need_a_driven_ancestor() -> None:
+    from motionviewer.blender.mmd_spring import build_spring_chains
+
+    armature, _ = _hair_rig()
+    spring = {"髮_0", "髮_1", "髮_2", "裙_0", "裙_1", "結_0", "結_1a", "結_1b", "orphan"}
+    armature.data.bones["orphan"] = _SpringBone("orphan")  # no driven ancestor
+    chains = build_spring_chains(armature, spring, driven={"頭"})
+    by_root = {chain[0]: chain for chain in chains}
+
+    assert by_root["髮_0"] == ["髮_0", "髮_1", "髮_2"]
+    assert by_root["裙_0"] == ["裙_0", "裙_1"]
+    # A fork ends the chain: both branches would otherwise share one solver state.
+    assert by_root["結_0"] == ["結_0"]
+    # Lag is relative to something that moves, so a rootless bone is skipped.
+    assert "orphan" not in by_root
+
+
+def test_driven_bones_are_never_simulated() -> None:
+    """The retarget's own channels must stay exact."""
+    from motionviewer.blender.mmd_spring import build_spring_chains
+
+    armature, _ = _hair_rig()
+    chains = build_spring_chains(armature, {"髮_0", "髮_1"}, driven={"頭", "髮_0"})
+    assert all("髮_0" not in chain for chain in chains)
+    assert [chain for chain in chains if chain[0] == "髮_1"]

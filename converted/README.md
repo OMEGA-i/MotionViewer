@@ -18,6 +18,22 @@ Motion data is a separate question from the character. `data/examples/` holds
 only clips the project may redistribute; anything from a licensed or internal
 motion set stays out of git too.
 
+## What is here now
+
+Generated 2026-08-15 from the `soma_tmr_test_400m_all_fullpose` test set, `gt`
+source, at 800 px portrait with cel shading, outlines, floor shadow and baked
+spring bones:
+
+| | clips | videos | size | failures |
+| --- | --- | --- | --- | --- |
+| `showcase/` (Yoimiya) | 301 of 631 scored | 301 | 159 MB | 0 |
+| `showcase_cast/` (Furina, Silver Wolf) | top 60 each | 120 | 69 MB | 0 |
+| `figures/yoimiya/` | top 20 | 20 filmstrips, 2 trails | — | 0 |
+
+Verified three ways: every clip rendered, contact sheets eyeballed
+(`*/qc/qc_*.png`), and a popping scan over 70 clips found no frame changing more
+than 2.3x its clip's median — well inside choreography.
+
 ## Layout
 
 ```
@@ -25,6 +41,12 @@ converted/showcase/              The full run. Start here.
   index.html                     Every clip as a video card, ranked best first
   videos/<rec_id>_<character>.mp4
   manifest.json                  Per-clip scores and captions
+  qc/qc_*.png                    One frame per clip, tiled, for a fast scan
+
+converted/figures/<character>/<rec_id>/
+  filmstrip.png                  Publication figure: N frames, transparent
+  trail.png                      Motion overlay, when the root actually travels
+  figures.json                   Which clips got which figure
 
 converted/showcase_cast/         The same top clips on the other characters
 

@@ -32,7 +32,13 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--views", default="three_quarter")
     parser.add_argument("--frames", type=int, default=0, help="0 means the whole clip")
-    parser.add_argument("--resolution", type=int, default=720)
+    parser.add_argument("--resolution", type=int, default=720, help="Frame height in pixels")
+    parser.add_argument(
+        "--aspect",
+        type=float,
+        default=1.0,
+        help="Width / height. A standing figure wastes half a square frame; 0.75 suits one.",
+    )
     parser.add_argument(
         "--panels",
         default="skeleton,character",
@@ -71,6 +77,7 @@ def main() -> None:
 
     views = [value.strip() for value in args.views.split(",") if value.strip()]
     panels = [value.strip() for value in args.panels.split(",") if value.strip()]
+    width = max(int(round(args.resolution * args.aspect)), 16)
 
     clear_scene()
     setup_world(transparent=False)
@@ -211,7 +218,7 @@ def main() -> None:
         spring_info = apply_secondary_motion(bpy, actor.armature, frame_start=frame_start, num_frames=total)
         print(f"spring: {json.dumps(spring_info, ensure_ascii=False)}")
     scene.render.engine = _normalize_engine("BLENDER_EEVEE")
-    scene.render.resolution_x = args.resolution
+    scene.render.resolution_x = width
     scene.render.resolution_y = args.resolution
     scene.render.film_transparent = False
     scene.render.image_settings.file_format = "PNG"
@@ -227,7 +234,7 @@ def main() -> None:
             maxs.tolist(),
             preset=view,
             margin=1.1,
-            resolution=(args.resolution, args.resolution),
+            resolution=(width, args.resolution),
         )
         for panel in panels:
             # The outline shell is a separate object, so hiding only the

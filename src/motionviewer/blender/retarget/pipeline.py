@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ...core.smplx_actor import SmplxActor
-from ._animate import animate_all_frames
+from ._animate import animate_all_frames, animate_mmd_frames
 from ._bootstrap import bootstrap_input
 from ._ground import compute_ground_plan
 from ._precompute import precompute_retarget_context
@@ -30,6 +30,7 @@ def create_fbx_actor_from_npz(
     retarget_mode: str = "quality",
     layout_offset: tuple[float, float, float] = (0.0, 0.0, 0.0),
     motion_overrides: dict | None = None,
+    mmd_polish: dict | None = None,
 ) -> SmplxActor:
     """Import an FBX character and animate it from SMPL-X motion data.
 
@@ -67,6 +68,19 @@ def create_fbx_actor_from_npz(
     # ---- Stage 3: Resolve the validated Mixamo mapping ---------------------
     mapping = resolve_bone_mapping(bone_map, fbx_armature=fbx_armature)
 
+    # MMD rigs need their own solve: cancel bones, 捩 twist bones and D-bones
+    # that copy the FK chain make the Mixamo rest-delta path the wrong model.
+    if mapping.rig_family == "mmd":
+        from .mmd import MmdPolishOptions
+
+        return animate_mmd_frames(
+            bpy,
+            boot,
+            mapping,
+            vertical_offset_z=_mmd_ground_offset(fbx_meshes),
+            polish=MmdPolishOptions.from_mapping(mmd_polish),
+        )
+
     # ---- Stage 4: Precompute rest-delta transfer matrices ------------------
     # This must happen while the hidden source armature is still in rest pose.
     # Ground contact scanning poses every source frame and therefore cannot
@@ -96,3 +110,17 @@ def create_fbx_actor_from_npz(
 
     # ---- Stage 6: Animate all frames ---------------------------------------
     return animate_all_frames(bpy, boot, context, ground, retarget_mode=retarget_mode)
+
+
+def _mmd_ground_offset(meshes: list) -> float:
+    """Raise the character so the lowest mesh vertex sits on Z=0."""
+    lowest = 0.0
+    found = False
+    for mesh in meshes:
+        matrix = mesh.matrix_world
+        for vertex in mesh.data.vertices:
+            world_z = (matrix @ vertex.co).z
+            if not found or world_z < lowest:
+                lowest = float(world_z)
+                found = True
+    return -lowest if found and lowest < 0.0 else 0.0

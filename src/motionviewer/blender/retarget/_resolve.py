@@ -1,20 +1,21 @@
-"""Mixamo-only bone-map resolution.
+"""Bone-map resolution for Mixamo and MMD target rigs.
 
-All callers receive SMPL-X names mapped to the actual imported FBX names.
+All callers receive SMPL-X names mapped to the actual imported bone names.
 The adapter is the only place that knows whether an asset uses a prefix.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from ...core.canonical_skeleton import SMPLX_TO_CANONICAL
 from .calibration import MIXAMO_BODY_BONES, MixamoNameAdapter, inspect_mixamo_rig
+from .mmd import detect_mmd_family, inspect_mmd_rig
+from .twist import TwistPair
 
-# Retained as a public discovery constant.  There is one semantic preset, not
-# three namespace-specific copies.
-BONE_MAP_PRESETS: dict[str, tuple[str, ...]] = {"mixamo": MIXAMO_BODY_BONES}
+# Retained as a public discovery constant.
+BONE_MAP_PRESETS: dict[str, tuple[str, ...]] = {"mixamo": MIXAMO_BODY_BONES, "mmd": ()}
 
 _CANONICAL_TO_MIXAMO: dict[str, str] = {
     "hips": "Hips",
@@ -47,6 +48,9 @@ class BoneMapping:
     smplx_to_fbx: dict[str, str]
     rig_family: str = "mixamo"
     prefix: str = ""
+    twist_pairs: tuple[TwistPair, ...] = field(default_factory=tuple)
+    # Target bone name -> transfer mode. MMD only; see mmd_solve.
+    transfer_modes: dict[str, str] = field(default_factory=dict)
 
 
 def _cross_with_smplx(canonical_map: dict[str, str]) -> dict[str, str]:
@@ -62,11 +66,24 @@ def resolve_bone_mapping(
     *,
     fbx_armature: Any = None,
 ) -> BoneMapping:
-    """Resolve a complete Mixamo mapping or fail before animation begins."""
-    if bone_map_spec not in {"auto", "mixamo"}:
-        raise ValueError("Mixamo-only retarget accepts bone_map 'auto' or 'mixamo'")
+    """Resolve a Mixamo or MMD mapping, or fail before animation begins."""
+    if bone_map_spec not in {"auto", "mixamo", "mmd"}:
+        raise ValueError("retarget accepts bone_map 'auto', 'mixamo', or 'mmd'")
     if fbx_armature is None:
-        raise ValueError("A Mixamo armature is required to resolve its namespace")
+        raise ValueError("A target armature is required to resolve its namespace")
+
+    bone_names = {bone.name for bone in fbx_armature.data.bones}
+    use_mmd = bone_map_spec == "mmd" or (bone_map_spec == "auto" and detect_mmd_family(bone_names))
+    if use_mmd:
+        inspection = inspect_mmd_rig(fbx_armature)
+        if not inspection.valid:
+            raise ValueError("Invalid MMD rig: " + "; ".join(inspection.errors))
+        return BoneMapping(
+            smplx_to_fbx=inspection.smplx_map,
+            rig_family="mmd",
+            twist_pairs=inspection.twist_pairs,
+            transfer_modes=inspection.transfer_modes,
+        )
 
     inspection = inspect_mixamo_rig(fbx_armature)
     if not inspection.valid or inspection.adapter is None:

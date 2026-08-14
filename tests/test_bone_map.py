@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from motionviewer.blender.fbx_skeleton import BONE_MAP_PRESETS
-from motionviewer.blender.retarget._resolve import resolve_bone_mapping
+from motionviewer.blender.retarget._resolve import BONE_MAP_PRESETS, resolve_bone_mapping
 from motionviewer.core.canonical_skeleton import SMPLX_TO_CANONICAL
 
 
@@ -49,8 +48,9 @@ class _MixamoArmature:
         self.data = type("ArmatureData", (), {"bones": list(bones.values())})()
 
 
-def test_mixamo_is_the_only_preset() -> None:
-    assert set(BONE_MAP_PRESETS) == {"mixamo"}
+def test_mixamo_is_the_supported_fbx_preset() -> None:
+    assert "mixamo" in BONE_MAP_PRESETS
+    assert "mmd" in BONE_MAP_PRESETS
 
 
 @pytest.mark.parametrize("prefix", ["", "mixamorig:", "mixamorig1:"])

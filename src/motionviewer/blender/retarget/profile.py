@@ -17,10 +17,10 @@ class RetargetProfile:
     validation_status: str = "active"
 
     def __post_init__(self) -> None:
-        if self.rig_family != "mixamo":
-            raise ValueError("Retarget profiles only support the mixamo rig family")
-        if self.bone_map not in {"auto", "mixamo"}:
-            raise ValueError("Mixamo retarget profiles only support bone_map 'auto' or 'mixamo'")
+        if self.rig_family not in {"mixamo", "mmd"}:
+            raise ValueError("Retarget profiles only support the mixamo or mmd rig families")
+        if self.bone_map not in {"auto", "mixamo", "mmd"}:
+            raise ValueError("Retarget profiles only support bone_map 'auto', 'mixamo', or 'mmd'")
         if self.retarget_mode not in {"quality", "direct"}:
             raise ValueError("retarget_mode must be 'quality' or 'direct'")
 

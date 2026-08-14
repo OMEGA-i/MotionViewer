@@ -10,6 +10,7 @@ Public API:
 from ._resolve import BONE_MAP_PRESETS, resolve_bone_map
 from .calibration import CalibrationResult, MixamoNameAdapter, MixamoRigProfile, inspect_mixamo_rig
 from .export import export_fbx_animation, validate_fbx_roundtrip
+from .mmd import inspect_mmd_rig
 from .pipeline import create_fbx_actor_from_npz
 from .profile import RetargetAssetEntry, RetargetCatalog, RetargetProfile
 
@@ -24,6 +25,7 @@ __all__ = [
     "create_fbx_actor_from_npz",
     "export_fbx_animation",
     "inspect_mixamo_rig",
+    "inspect_mmd_rig",
     "resolve_bone_map",
     "validate_fbx_roundtrip",
 ]

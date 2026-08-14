@@ -1,0 +1,62 @@
+# SMPL-X motion driving the local Yoimiya PMX character.
+inputs:
+  - path: ../../data/examples/smplx_body22_fitted_aa/omegamotiongpt.smplx.npz
+    label: Yoimiya
+    format: smplx_body22_fitted_aa
+    body:
+      backend: fbx_skeleton
+      gender: female
+      fbx_path: ../../assets/fbx/pmx/yoimiya/宵宫.pmx
+      fbx_scale: 0.08
+      bone_map: mmd
+      retarget_mode: direct
+task:
+  mode: continuation
+  instruction: null
+timeline:
+  show_prefix: true
+layout:
+  mode: single
+  alignment: start_root
+# Job-level body is the default for any input that does not carry its own, and it
+# is validated even when every input overrides it. Spelling the character out
+# here keeps the job self-describing and free of the SMPL-X addon.
+body:
+  backend: fbx_skeleton
+  gender: female
+  fbx_path: ../../assets/fbx/pmx/yoimiya/宵宫.pmx
+  fbx_scale: 0.08
+  bone_map: mmd
+  retarget_mode: direct
+style:
+  palette: soft_paper
+  temporal_ramp: light_to_dark
+  ghost_snapshots: 0
+  prefix:
+    mode: attached
+    color: [0.74, 0.76, 0.76]
+    ghost_count: 0
+  ghost:
+    mode: none
+    include_prefix: false
+    warmup_frames: 0
+    alpha: 0.16
+  labels:
+    mode: none
+    show_instruction: false
+ground:
+  mode: none
+camera:
+  preset: three_quarter
+  orthographic: true
+  margin: 1.2
+render:
+  engine: BLENDER_EEVEE
+  resolution: [1280, 720]
+  samples: 32
+  transparent_background: true
+output:
+  directory: ../../outputs/yoimiya_smplx
+  mp4_name: yoimiya_smplx.mp4
+  keep_frames: true
+  overwrite: true

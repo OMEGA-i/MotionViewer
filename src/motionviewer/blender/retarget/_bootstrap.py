@@ -7,14 +7,17 @@ the FBX character, and runs import-time calibration.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from ...core.smplx_fk import SmplxLookatMotion, build_lookat_motion
 from ..addon_probe import require_smplx_addon
 from ..smplx_mesh import configure_smplx_tool
+from .mmd import mute_mmd_ik
+from .twist import TwistPair
 
 
 @dataclass(frozen=True)
@@ -29,11 +32,14 @@ class BootstrapOutput:
     body_pose: np.ndarray  # (T, 21, 3)
     transl: np.ndarray  # (T, 3)
     offset: np.ndarray  # (3,) layout offset
-    calibration: Any  # CalibrationResult
-    rig_profile: Any  # MixamoRigProfile
+    calibration: Any  # CalibrationResult | None
+    rig_profile: Any  # MixamoRigProfile | None
     unit_scale: float
     frame_start: int
     label: str
+    rig_family: str = "mixamo"
+    lookat_motion: SmplxLookatMotion | None = None
+    twist_pairs: tuple[TwistPair, ...] = field(default_factory=tuple)
 
 
 def bootstrap_input(
@@ -60,22 +66,48 @@ def bootstrap_input(
         normalize_imported_mixamo_units,
     )
 
-    require_smplx_addon()
-
-    # ---- load SMPL-X motion data -------------------------------------------
     data = np.load(path, allow_pickle=False)
     global_orient = np.asarray(data["global_orient"], dtype=np.float32)
     body_pose = np.asarray(data["body_pose"], dtype=np.float32).reshape(global_orient.shape[0], 21, 3)
     transl = np.asarray(data["transl"], dtype=np.float32)
+    joints = np.asarray(data["joints22"], dtype=np.float32) if "joints22" in data.files else None
     if motion_overrides and motion_overrides.get("body_pose") is not None:
         body_pose = np.asarray(motion_overrides["body_pose"], dtype=np.float32).reshape(
             global_orient.shape[0], 21, 3
         )
+    if motion_overrides and motion_overrides.get("global_orient") is not None:
+        global_orient = np.asarray(motion_overrides["global_orient"], dtype=np.float32)
     if motion_overrides and motion_overrides.get("transl") is not None:
         transl = np.asarray(motion_overrides["transl"], dtype=np.float32)
+    if motion_overrides and motion_overrides.get("joints22") is not None:
+        joints = np.asarray(motion_overrides["joints22"], dtype=np.float32)
 
     offset = np.asarray(layout_offset, dtype=np.float32)
     num_frames = global_orient.shape[0]
+    character_path = Path(fbx_path)
+    is_mmd = character_path.suffix.lower() == ".pmx"
+
+    lookat_motion = None
+    if joints is not None:
+        lookat_motion = build_lookat_motion(joints, global_orient, body_pose, transl)
+
+    if is_mmd:
+        return _bootstrap_mmd(
+            bpy,
+            path=character_path,
+            label=label,
+            fbx_scale=fbx_scale,
+            global_orient=global_orient,
+            body_pose=body_pose,
+            transl=transl,
+            offset=offset,
+            num_frames=num_frames,
+            unit_scale=unit_scale,
+            frame_start=frame_start,
+            lookat_motion=lookat_motion,
+        )
+
+    require_smplx_addon()
 
     # ---- create hidden SMPL-X armature (pose driver) -----------------------
     before_smplx = set(bpy.data.objects)
@@ -170,4 +202,53 @@ def bootstrap_input(
         unit_scale=unit_scale,
         frame_start=frame_start,
         label=label,
+        lookat_motion=lookat_motion,
+    )
+
+
+def _bootstrap_mmd(
+    bpy: Any,
+    *,
+    path: Path,
+    label: str,
+    fbx_scale: float,
+    global_orient: np.ndarray,
+    body_pose: np.ndarray,
+    transl: np.ndarray,
+    offset: np.ndarray,
+    num_frames: int,
+    unit_scale: float,
+    frame_start: int,
+    lookat_motion: SmplxLookatMotion | None,
+) -> BootstrapOutput:
+    from ..mmd_import import import_pmx_character
+    from .mmd import inspect_mmd_rig
+
+    if lookat_motion is None:
+        raise ValueError("MMD retarget requires joints22 in the motion NPZ")
+
+    scale = float(fbx_scale) if fbx_scale not in {0.0, 1.0} else 0.08
+    armature, meshes = import_pmx_character(bpy, path, label=label, scale=scale)
+    mute_mmd_ik(armature)
+    inspection = inspect_mmd_rig(armature)
+    if not inspection.valid:
+        raise ValueError("Invalid MMD rig: " + "; ".join(inspection.errors))
+    armature["motionviewer_mmd_map"] = json.dumps(inspection.smplx_map, ensure_ascii=False, sort_keys=True)
+    return BootstrapOutput(
+        smplx_armature=None,
+        fbx_armature=armature,
+        fbx_meshes=meshes,
+        num_frames=num_frames,
+        global_orient=global_orient,
+        body_pose=body_pose,
+        transl=transl,
+        offset=offset,
+        calibration=None,
+        rig_profile=None,
+        unit_scale=unit_scale,
+        frame_start=frame_start,
+        label=label,
+        rig_family="mmd",
+        lookat_motion=lookat_motion,
+        twist_pairs=inspection.twist_pairs,
     )

@@ -81,7 +81,7 @@ def _write_index(output: Path, entries: list[dict], title: str) -> None:
             f"{score.get('max_angular_velocity_deg_s', 0):.0f} deg/s peak",
         ]
         cards.append(
-            "<article>"
+            f'<article data-text="{html.escape((entry["rec_id"] + " " + entry.get("caption", "") + " " + entry["character"]).lower())}">'
             f'<video src="{html.escape(entry["video"])}" controls loop muted playsinline preload="none"></video>'
             f"<h2>{html.escape(entry['rec_id'])} <span>{html.escape(entry['character'])}</span></h2>"
             f'<p class="meta">{html.escape(" · ".join(bits))}</p>'
@@ -106,13 +106,43 @@ def _write_index(output: Path, entries: list[dict], title: str) -> None:
   h2 span {{ color:#7f868d; font-weight:400; }}
   .meta {{ color:#7f868d; font-size:12px; margin:0 12px 6px; }}
   .caption {{ color:#b9bec4; font-size:13px; margin:0 12px 12px; }}
+  .tools {{ position:sticky; top:0; z-index:2; background:#14161a; padding:8px 0 14px;
+            display:flex; gap:10px; align-items:center; flex-wrap:wrap; }}
+  input[type=search] {{ background:#1a1d22; border:1px solid #2b3038; color:#e8e6e3;
+            border-radius:7px; padding:8px 11px; font:14px inherit; min-width:min(340px,70vw); }}
+  #count {{ color:#7f868d; font-size:13px; font-variant-numeric:tabular-nums; }}
+  article[hidden] {{ display:none; }}
 </style></head><body>
 <h1>{html.escape(title)}</h1>
 <p class="lede">{len(entries)} clips, ranked cleanest-then-most-expressive by
 <code>score_motion_quality.py</code>. Cel shaded with the model's own ramp and
 sphere maps, outlined, floor shadow, and baked spring bones on every bone the PMX
 marks as dynamic. Videos load on demand — click one to play.</p>
-<div class="grid">{"".join(cards)}</div>
+<div class="tools">
+  <input type="search" id="q" placeholder="filter by caption, id or character — e.g. dance, kick, sit">
+  <span id="count"></span>
+</div>
+<div class="grid" id="grid">{"".join(cards)}</div>
+<script>
+// Client-side filter: the whole set is one page, and finding the clip worth
+// showing in a paper is the actual task here.
+const cards = [...document.querySelectorAll('#grid article')];
+const box = document.getElementById('q');
+const count = document.getElementById('count');
+function apply() {{
+  const terms = box.value.toLowerCase().split(/\s+/).filter(Boolean);
+  let shown = 0;
+  for (const card of cards) {{
+    const text = card.dataset.text;
+    const hit = terms.every(term => text.includes(term));
+    card.hidden = !hit;
+    if (hit) shown++;
+  }}
+  count.textContent = shown + ' / ' + cards.length + ' clips';
+}}
+box.addEventListener('input', apply);
+apply();
+</script>
 </body></html>
 """
     (output / "index.html").write_text(page, encoding="utf-8")

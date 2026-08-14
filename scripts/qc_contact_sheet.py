@@ -69,6 +69,50 @@ def _grab(video: Path, destination: Path, position: float) -> bool:
     return result.returncode == 0 and destination.is_file()
 
 
+def _pop_ratio(video: Path) -> tuple[float, float, int] | None:
+    """Largest frame-to-frame change over the clip's median, and where.
+
+    Cheap proxy for a visual glitch: real motion moves a lot every frame, so a
+    single frame that changes several times more than the clip's own median is
+    almost always a pop rather than choreography.
+    """
+    import tempfile
+
+    import numpy as np
+
+    ffmpeg = shutil.which("ffmpeg")
+    if ffmpeg is None:
+        return None
+    with tempfile.TemporaryDirectory() as directory:
+        result = subprocess.run(
+            [
+                ffmpeg,
+                "-y",
+                "-loglevel",
+                "error",
+                "-i",
+                str(video),
+                "-vf",
+                "scale=160:-1",
+                "-vsync",
+                "0",
+                f"{directory}/f_%04d.png",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return None
+        frames = sorted(Path(directory).glob("f_*.png"))
+        if len(frames) < 3:
+            return None
+        grey = [np.asarray(Image.open(path).convert("L"), dtype=np.float32) for path in frames]
+    diffs = np.array([np.abs(grey[index] - grey[index - 1]).mean() for index in range(1, len(grey))])
+    median = float(np.median(diffs))
+    largest = float(diffs.max())
+    return largest / max(median, 1e-6), largest, int(np.argmax(diffs)) + 2
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", type=Path, required=True, help="Showcase directory with videos/")
@@ -77,6 +121,12 @@ def main() -> None:
     parser.add_argument("--rows", type=int, default=6)
     parser.add_argument("--cell", type=int, default=210)
     parser.add_argument("--position", type=float, default=0.6, help="Fraction into the clip")
+    parser.add_argument(
+        "--pop-check",
+        type=int,
+        default=0,
+        help="Also scan N videos for temporal popping (0 skips it)",
+    )
     args = parser.parse_args()
 
     videos = sorted((args.input / "videos").glob("*.mp4"))
@@ -129,6 +179,25 @@ def main() -> None:
     print(f"{len(videos)} clips over {sheets} sheet(s)")
     if failed:
         print(f"could not grab a frame from {len(failed)}: {failed[:10]}")
+
+    if args.pop_check > 0:
+        print(f"\nscanning {min(args.pop_check, len(videos))} videos for popping")
+        suspects = []
+        for video in videos[: args.pop_check]:
+            result = _pop_ratio(video)
+            if result is None:
+                continue
+            ratio, largest, frame = result
+            # A spring-bone glitch or a keyframe discontinuity shows up as one
+            # frame differing far more than the clip's own median motion.
+            if ratio > 6.0 and largest > 4.0:
+                suspects.append((video.stem, ratio, frame))
+        if suspects:
+            print(f"  {len(suspects)} possible pops:")
+            for name, ratio, frame in suspects[:12]:
+                print(f"    {name}  ratio {ratio:.1f} at frame {frame}")
+        else:
+            print("  none: every clip's largest frame-to-frame change is in line with its own motion")
 
 
 if __name__ == "__main__":

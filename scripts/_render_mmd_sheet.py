@@ -34,12 +34,26 @@ def main() -> None:
     parser.add_argument("--resolution", type=int, default=700)
     parser.add_argument("--faithful", action="store_true", help="Disable the polish pass")
     parser.add_argument("--abduction", type=float, default=None, help="Override arm abduction degrees")
+    parser.add_argument("--toon", action="store_true", help="Cel shading, toon light rig")
+    parser.add_argument("--outline", action="store_true", help="Inverted-hull outline")
+    parser.add_argument("--ground", action="store_true", help="Floor that receives the shadow")
+    parser.add_argument("--shadow-threshold", type=float, default=0.42)
+    parser.add_argument("--shadow-depth", type=float, default=0.55)
+    parser.add_argument("--rim", type=float, default=0.18)
+    parser.add_argument("--sphere", type=float, default=0.55)
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
 
     import bpy  # type: ignore
     import numpy as np
 
     from motionviewer.blender.camera import add_camera_for_bounds
+    from motionviewer.blender.mmd_toon import (
+        ToonStyle,
+        add_ground,
+        add_outline,
+        add_toon_lighting,
+        apply_toon_shading,
+    )
     from motionviewer.blender.render import _normalize_engine
     from motionviewer.blender.retarget.pipeline import create_fbx_actor_from_npz
     from motionviewer.blender.scene import add_lighting, clear_scene, setup_world
@@ -55,7 +69,7 @@ def main() -> None:
     frames = [int(value) for value in args.frames.split(",") if value.strip()]
 
     clear_scene()
-    setup_world(transparent=True)
+    setup_world(transparent=not args.ground)
 
     motion_overrides = None
     if args.identity:
@@ -121,7 +135,22 @@ def main() -> None:
         mins = np.minimum(mins, frame_mins)
         maxs = np.maximum(maxs, frame_maxs)
 
-    add_lighting(mins.tolist(), maxs.tolist())
+    style = ToonStyle(
+        shadow_threshold=args.shadow_threshold,
+        shadow_depth=args.shadow_depth,
+        rim_strength=args.rim,
+        sphere_strength=args.sphere,
+    )
+    if args.toon:
+        report = apply_toon_shading(actor.mesh_objects, style=style)
+        print(f"toon: {len(report['shaded'])} shaded, {len(report['unlit'])} unlit, {len(report['skipped'])} skipped")
+        add_toon_lighting(mins.tolist(), maxs.tolist())
+    else:
+        add_lighting(mins.tolist(), maxs.tolist())
+    if args.outline:
+        print(f"outline shells: {len(add_outline(actor.mesh_objects, style=style))}")
+    if args.ground:
+        add_ground(mins.tolist(), maxs.tolist())
     if args.zoom != "full":
         height = float(maxs[2] - mins[2])
         # Keep the shoulders and arms; drop the legs and skirt from the frame.
@@ -131,7 +160,7 @@ def main() -> None:
     scene.render.engine = _normalize_engine("BLENDER_EEVEE")
     scene.render.resolution_x = args.resolution
     scene.render.resolution_y = args.resolution
-    scene.render.film_transparent = True
+    scene.render.film_transparent = not args.ground
     scene.render.image_settings.file_format = "PNG"
     args.output.mkdir(parents=True, exist_ok=True)
 

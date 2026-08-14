@@ -249,3 +249,69 @@ skeleton as two passes under one camera; `scripts/build_review_page.py` stacks
 them into MP4s and writes an `index.html`. A pose that looks wrong on the
 character and also looks wrong on the skeleton came from the motion.
 `scripts/_batch_review.py` drives both over a directory of clips.
+
+# Looking right: cel shading
+
+A correct retarget on a Genshin or Honkai model still looked like clay, and the
+reason is not the motion. These models are authored for a non-photoreal shader:
+a 16-32 px ramp texture decides the shadow step, a sphere map fakes the
+specular, and an outline sells the drawing. `mmd_tools` loads all three, then
+wires the ramp into a physically based mix as if it were a colour multiply, and
+sets `Sphere Tex Fac` to 0. So every input is present and none of them is doing
+its job — smooth diffuse shading over an anime texture, which is the waxy look.
+
+`blender/mmd_toon.py` rebuilds each material the way the model expects:
+
+```
+N·L  ->  sharpened step  ->  the model's own shadow tint  ->  x base texture
+```
+
+`Shader to RGB` supplies `N·L` including cast shadows, so this is EEVEE-only.
+The result is emitted rather than lit, which means **brightness is bounded by the
+base texture and cannot blow out** — that alone fixed the washed-out faces, which
+three area lights at 900/420/280 W had been overexposing.
+
+Two decisions are read off the model instead of guessed:
+
+- **A material with no toon ramp is left unlit.** Eyes, mouth interiors, teeth
+  and brows are authored that way on all three rigs tested; shading them is what
+  makes anime eyes look dead.
+- **The face gets a much flatter terminator.** Genshin drives face shadow from an
+  authored SDF map that a PMX rip does not carry, and a plain `N·L` terminator
+  cuts a hard line across the nose and eyes that reads as a blemish. The face
+  group is identified by which materials share a base texture with an *unlit*
+  material — `face_base_images` — so no material-name matching is needed and it
+  works whatever language the rig is in.
+
+The shadow tint is sampled from the bottom row of the model's own ramp, so a warm
+skin shadow stays warm.
+
+`add_outline` builds an inverted hull: a copy of the character, inflated by
+`Solidify` with flipped normals and a back-face-culled black material, so only
+the silhouette survives. The copy keeps the armature modifier and therefore
+deforms with the animation. 4.5 mm on a 1.5 m character is about 3 px at 1500 px
+wide; the 1.8 mm first attempt was under a pixel and invisible.
+
+`add_toon_lighting` replaces the three-light rig with one sun plus flat ambient.
+Cel shading wants a single clean terminator; three lights give three overlapping
+ones. The sun's angle is wide (0.42 rad) so both the body terminator and the cast
+shadow stay soft. `add_ground` adds a floor that receives that shadow, which is
+most of what tells a viewer where the feet are.
+
+Pass `--toon` to `scripts/render_yoimiya.py`, `scripts/render_mmd_compare.py` or
+`scripts/_render_mmd_sheet.py`; `--no-outline` and `--no-ground` opt out.
+
+## What is still missing
+
+Verified on Yoimiya, Furina and Silver Wolf. Known gaps, in the order they will
+be noticed:
+
+- No hair or cloth secondary motion. The rigs carry physics joints; the importer
+  is asked for `MESH` and `ARMATURE` only. A fast turn therefore moves hair
+  rigidly, which is most of why a 2400 deg/s source turn reads as violent.
+- Source motion quality is not screened. On the clips tested, one turns at
+  80 deg per frame and several have spine jitter with the highest
+  jitter-to-motion ratio in the body, which is carried rigidly into the head.
+  `scripts/_diagnose_motion.py` measures both; nothing yet filters on them.
+- Face shadow is a flattened ramp, not the game's SDF map.
+- Fingers hold a static relaxed curl; body-22 has no hand pose.

@@ -589,3 +589,22 @@ def test_missing_spine2_still_fails_when_the_rig_has_three_segments() -> None:
     inspection = inspect_mmd_rig(_Armature(broken))
     assert not inspection.valid
     assert any("上半身2" in message or "chest" in message for message in inspection.errors)
+
+
+def test_face_materials_are_found_by_which_ones_are_unlit() -> None:
+    """The face group is read off the model, not guessed from names."""
+    from motionviewer.blender.mmd_toon import face_base_images
+
+    # 目/白目/齒 carry no toon ramp and sample the face sheet; 面/口/睫 share it.
+    inventory = [
+        ("面.png", False),  # eyes: unlit
+        ("面.png", True),  # face skin
+        ("面.png", True),  # mouth
+        ("肌.png", True),  # body skin
+        ("衣.png", True),  # clothes
+        ("髮.png", True),  # hair
+    ]
+    assert face_base_images(inventory) == {"面.png"}
+
+    # A rig that shades everything has no unlit hint, so no face override.
+    assert face_base_images([("面.png", True), ("衣.png", True)]) == set()

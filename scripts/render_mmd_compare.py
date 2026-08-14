@@ -40,6 +40,9 @@ def main() -> None:
     )
     parser.add_argument("--faithful", action="store_true", help="Disable the polish pass")
     parser.add_argument("--caption", default="")
+    parser.add_argument("--toon", action="store_true", help="Cel shading, outline, floor shadow")
+    parser.add_argument("--no-outline", action="store_true", help="With --toon, skip the outline shell")
+    parser.add_argument("--no-ground", action="store_true", help="With --toon, skip the floor")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
 
     import bpy  # type: ignore
@@ -47,6 +50,7 @@ def main() -> None:
     from mathutils import Vector  # type: ignore
 
     from motionviewer.blender.camera import add_camera_for_bounds
+    from motionviewer.blender.mmd_toon import add_ground, add_outline, add_toon_lighting, apply_toon_shading
     from motionviewer.blender.render import _normalize_engine
     from motionviewer.blender.retarget.pipeline import create_fbx_actor_from_npz
     from motionviewer.blender.scene import add_lighting, clear_scene, setup_world
@@ -64,6 +68,7 @@ def main() -> None:
 
     clear_scene()
     setup_world(transparent=False)
+
 
     actor = create_fbx_actor_from_npz(
         args.motion,
@@ -182,7 +187,16 @@ def main() -> None:
         mins = np.minimum(mins, frame_mins)
         maxs = np.maximum(maxs, frame_maxs)
 
-    add_lighting(mins.tolist(), maxs.tolist())
+    if args.toon:
+        report = apply_toon_shading(actor.mesh_objects)
+        print(f"toon: {len(report['shaded'])} shaded, {len(report['unlit'])} unlit, {len(report['face'])} face")
+        add_toon_lighting(mins.tolist(), maxs.tolist())
+        if not args.no_outline:
+            add_outline(actor.mesh_objects)
+        if not args.no_ground:
+            add_ground(mins.tolist(), maxs.tolist())
+    else:
+        add_lighting(mins.tolist(), maxs.tolist())
     scene.render.engine = _normalize_engine("BLENDER_EEVEE")
     scene.render.resolution_x = args.resolution
     scene.render.resolution_y = args.resolution
@@ -223,6 +237,7 @@ def main() -> None:
                 "views": views,
                 "panels": panels,
                 "faithful": bool(args.faithful),
+                "toon": bool(args.toon),
                 "transfer": transfer.get("polish", {}),
             },
             ensure_ascii=False,

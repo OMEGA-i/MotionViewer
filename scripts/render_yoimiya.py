@@ -67,12 +67,16 @@ def main() -> None:
         help="Also save a .blend with the retargeted action, textures packed",
     )
     parser.add_argument("--no-render", action="store_true", help="Only build the scene and save the .blend")
+    parser.add_argument("--toon", action="store_true", help="Cel shading, outline, floor shadow")
+    parser.add_argument("--no-outline", action="store_true", help="With --toon, skip the outline shell")
+    parser.add_argument("--no-ground", action="store_true", help="With --toon, skip the floor")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
 
     import bpy  # type: ignore
     import numpy as np
 
     from motionviewer.blender.camera import add_camera_for_bounds
+    from motionviewer.blender.mmd_toon import add_ground, add_outline, add_toon_lighting, apply_toon_shading
     from motionviewer.blender.render import _normalize_engine
     from motionviewer.blender.retarget.pipeline import create_fbx_actor_from_npz
     from motionviewer.blender.scene import add_lighting, clear_scene, setup_world
@@ -153,7 +157,16 @@ def main() -> None:
             mins = np.minimum(mins, frame_mins)
             maxs = np.maximum(maxs, frame_maxs)
     add_camera_for_bounds(mins.tolist(), maxs.tolist(), preset=args.camera, margin=1.35, resolution=(1280, 720))
-    add_lighting(mins.tolist(), maxs.tolist())
+    if args.toon:
+        report = apply_toon_shading(actor.mesh_objects)
+        print(f"toon: {len(report['shaded'])} shaded, {len(report['unlit'])} unlit, {len(report['face'])} face")
+        add_toon_lighting(mins.tolist(), maxs.tolist())
+        if not args.no_outline:
+            add_outline(actor.mesh_objects)
+        if not args.no_ground:
+            add_ground(mins.tolist(), maxs.tolist())
+    else:
+        add_lighting(mins.tolist(), maxs.tolist())
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
     scene.frame_start = frame_start
@@ -161,7 +174,7 @@ def main() -> None:
     scene.render.engine = _normalize_engine("BLENDER_EEVEE")
     scene.render.resolution_x = 1280
     scene.render.resolution_y = 720
-    scene.render.film_transparent = True
+    scene.render.film_transparent = not (args.toon and not args.no_ground)
     scene.render.image_settings.file_format = "PNG"
     if args.save_blend is not None:
         args.save_blend.parent.mkdir(parents=True, exist_ok=True)

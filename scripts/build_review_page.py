@@ -123,7 +123,7 @@ def main() -> None:
             meta_bits.append(f"hand relax {polish['hand_relax']}")
         players = "\n".join(
             "<figure>"
-            f"<video src=\"{html.escape(video['path'])}\" controls loop muted autoplay playsinline></video>"
+            f'<video src="{html.escape(video["path"])}" controls loop muted autoplay playsinline></video>'
             f"<figcaption>{html.escape(video['view'])} &middot; "
             f"{html.escape(' | '.join(video['panels']))}</figcaption>"
             "</figure>"
@@ -131,7 +131,7 @@ def main() -> None:
         )
         rows.append(
             f"<section><h2>{html.escape(entry['name'])}</h2>"
-            f"<p class=\"meta\">{html.escape(' &middot; '.join(meta_bits))}</p>"
+            f'<p class="meta">{html.escape(" &middot; ".join(meta_bits))}</p>'
             + (f'<p class="caption">{caption}</p>' if caption else "")
             + f'<div class="videos">{players}</div></section>'
         )

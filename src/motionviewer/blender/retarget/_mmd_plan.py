@@ -45,8 +45,7 @@ def _root_translation_scale(
 
     target_z = [float((world @ bones[name].matrix_local).translation.z) for name in target_to_source]
     source_z = [
-        float(np.asarray(source_rest[source], dtype=np.float64)[2, 3])
-        for source in target_to_source.values()
+        float(np.asarray(source_rest[source], dtype=np.float64)[2, 3]) for source in target_to_source.values()
     ]
     if not target_z or not source_z:
         return 1.0
@@ -114,9 +113,7 @@ def build_mmd_plan(
         parent_name = bone.parent.name if bone.parent is not None else None
         parent_index = index_of[parent_name] if parent_name is not None else -1
         rest_global = rest_rotations[name]
-        rest_local = (
-            rest_global if parent_name is None else rest_rotations[parent_name].T @ rest_global
-        )
+        rest_local = rest_global if parent_name is None else rest_rotations[parent_name].T @ rest_global
 
         source = target_to_source.get(name, "")
         if name in twist_bones:

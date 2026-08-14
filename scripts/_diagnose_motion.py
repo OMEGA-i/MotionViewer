@@ -89,9 +89,7 @@ def main() -> None:
             pose_bone = evaluated.pose.bones.get(bone)
             if pose_bone is None:
                 continue
-            character = np.asarray(
-                (world @ pose_bone.matrix).to_quaternion().to_matrix(), dtype=np.float64
-            )
+            character = np.asarray((world @ pose_bone.matrix).to_quaternion().to_matrix(), dtype=np.float64)
             source_rotation = blender_rotation(rotations[offset, SMPLX_BODY22_NAMES.index(source)])
             traces[bone]["character_yaw"].append(yaw_of(character, side))
             traces[bone]["source_yaw"].append(yaw_of(source_rotation, side))

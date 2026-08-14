@@ -230,9 +230,7 @@ def _write_mmd_channels(
             pose_bone.matrix_basis = Matrix.Identity(4)
 
     driven = [
-        (index, channel.name)
-        for index, channel in enumerate(plan.channels)
-        if channel.mode != "passthrough"
+        (index, channel.name) for index, channel in enumerate(plan.channels) if channel.mode != "passthrough"
     ]
     for pose_bone in armature.pose.bones:
         pose_bone.rotation_mode = "QUATERNION"

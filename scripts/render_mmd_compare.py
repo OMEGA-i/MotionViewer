@@ -69,7 +69,6 @@ def main() -> None:
     clear_scene()
     setup_world(transparent=False)
 
-
     actor = create_fbx_actor_from_npz(
         args.motion,
         label="yoimiya",
@@ -189,7 +188,9 @@ def main() -> None:
 
     if args.toon:
         report = apply_toon_shading(actor.mesh_objects)
-        print(f"toon: {len(report['shaded'])} shaded, {len(report['unlit'])} unlit, {len(report['face'])} face")
+        print(
+            f"toon: {len(report['shaded'])} shaded, {len(report['unlit'])} unlit, {len(report['face'])} face"
+        )
         add_toon_lighting(mins.tolist(), maxs.tolist())
         if not args.no_outline:
             add_outline(actor.mesh_objects)

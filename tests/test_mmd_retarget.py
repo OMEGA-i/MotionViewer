@@ -218,9 +218,9 @@ def test_relative_calibration_applies_source_rotation_to_target_rest() -> None:
     source_rest = _frame_from_y((0.0, 0.0, 1.0), (1.0, 0.0, 0.0))
     target_rest = _frame_from_y((0.0, -0.678, 0.735), (1.0, 0.0, 0.0))  # 腰 display axis
     calibration = relative_calibration(source_rest, target_rest)
-    rotation = _frame_from_y((0.3, 0.4, 0.87), (1.0, 0.0, 0.0)) @ _frame_from_y(
-        (0.0, 0.0, 1.0), (1.0, 0.0, 0.0)
-    ).T
+    rotation = (
+        _frame_from_y((0.3, 0.4, 0.87), (1.0, 0.0, 0.0)) @ _frame_from_y((0.0, 0.0, 1.0), (1.0, 0.0, 0.0)).T
+    )
     world = (rotation @ source_rest) @ calibration
     # W == R_g @ target_rest: the character keeps its own rest orientation.
     assert world == pytest.approx(rotation @ target_rest, abs=1e-12)
@@ -459,7 +459,9 @@ def test_absolute_arm_never_folds_below_the_a_pose_bind() -> None:
 
 def test_rest_offset_recovers_constant_parent_child() -> None:
     offsets = recover_rest_offsets(
-        np.array([[[0.0, 0.0, 0.0], [0.1, 0.0, 0.0]] + [[0.0, 0.0, 0.0]] * 20], dtype=np.float64).repeat(4, axis=0),
+        np.array([[[0.0, 0.0, 0.0], [0.1, 0.0, 0.0]] + [[0.0, 0.0, 0.0]] * 20], dtype=np.float64).repeat(
+            4, axis=0
+        ),
         np.zeros((4, 3)),
         np.zeros((4, 63)),
     )

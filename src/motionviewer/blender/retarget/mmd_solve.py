@@ -445,9 +445,7 @@ def _split_twist_onto(
     below it identical to putting the whole rotation on the swing bone:
     ``rest_local @ B_twist == twist @ rest_local``.
     """
-    swing_quaternion, twist_quaternion = swing_twist_decompose(
-        matrix_to_quaternion(basis), _BONE_AXIS
-    )
+    swing_quaternion, twist_quaternion = swing_twist_decompose(matrix_to_quaternion(basis), _BONE_AXIS)
     rest_local = plan.channels[twist_index].rest_local
     pending_twist[twist_index] = rest_local.T @ quaternion_to_matrix(twist_quaternion) @ rest_local
     return quaternion_to_matrix(swing_quaternion)

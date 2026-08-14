@@ -78,9 +78,7 @@ def main() -> None:
                     node_entry["image"] = node.image.name
                     node_entry["filepath"] = node.image.filepath
                     node_entry["has_data"] = bool(node.image.has_data)
-                node_entry["inputs_linked"] = [
-                    socket.name for socket in node.inputs if socket.is_linked
-                ]
+                node_entry["inputs_linked"] = [socket.name for socket in node.inputs if socket.is_linked]
                 entry["nodes"].append(node_entry)
             for link in material.node_tree.links:
                 entry["links"].append(

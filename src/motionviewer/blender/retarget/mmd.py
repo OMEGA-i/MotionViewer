@@ -195,7 +195,9 @@ def _pick(aliases: tuple[str, ...], available: dict[str, str], used: set[str]) -
     return None
 
 
-def inspect_mmd_rig(armature: Any, twist_axes: dict[str, tuple[float, float, float]] | None = None) -> MmdRigInspection:
+def inspect_mmd_rig(
+    armature: Any, twist_axes: dict[str, tuple[float, float, float]] | None = None
+) -> MmdRigInspection:
     bones = [bone.name for bone in armature.data.bones]
     available = {_normalize_name(name): name for name in bones}
     used: set[str] = set()

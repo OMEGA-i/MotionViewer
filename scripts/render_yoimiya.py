@@ -56,7 +56,9 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--frames", type=int, default=0, help="0 means the full clip")
     parser.add_argument("--mode", choices=("quality", "direct"), default="direct")
-    parser.add_argument("--still", action="store_true", help="Render one diagnostic frame instead of the clip")
+    parser.add_argument(
+        "--still", action="store_true", help="Render one diagnostic frame instead of the clip"
+    )
     parser.add_argument("--identity", action="store_true", help="Zero body pose to inspect T-pose transfer")
     parser.add_argument("--camera", default="three_quarter")
     parser.add_argument("--clip-frame", type=int, default=0, help="Source frame index for --still")
@@ -156,10 +158,14 @@ def main() -> None:
             frame_mins, frame_maxs = mesh_bounds()
             mins = np.minimum(mins, frame_mins)
             maxs = np.maximum(maxs, frame_maxs)
-    add_camera_for_bounds(mins.tolist(), maxs.tolist(), preset=args.camera, margin=1.35, resolution=(1280, 720))
+    add_camera_for_bounds(
+        mins.tolist(), maxs.tolist(), preset=args.camera, margin=1.35, resolution=(1280, 720)
+    )
     if args.toon:
         report = apply_toon_shading(actor.mesh_objects)
-        print(f"toon: {len(report['shaded'])} shaded, {len(report['unlit'])} unlit, {len(report['face'])} face")
+        print(
+            f"toon: {len(report['shaded'])} shaded, {len(report['unlit'])} unlit, {len(report['face'])} face"
+        )
         add_toon_lighting(mins.tolist(), maxs.tolist())
         if not args.no_outline:
             add_outline(actor.mesh_objects)

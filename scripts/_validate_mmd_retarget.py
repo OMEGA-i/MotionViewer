@@ -110,9 +110,7 @@ def _check(bpy: Any, np: Any, motion_path: Path, asset: Path, frames: int, polis
             pose_bone = evaluated_armature.pose.bones.get(channel.name)
             if pose_bone is None:
                 continue
-            evaluated = np.asarray(
-                (world @ pose_bone.matrix).to_quaternion().to_matrix(), dtype=np.float64
-            )
+            evaluated = np.asarray((world @ pose_bone.matrix).to_quaternion().to_matrix(), dtype=np.float64)
             solved = result.world_rotations[offset, index]
             record = per_bone.setdefault(channel.name, {"mode": channel.mode})
             gap = geodesic(evaluated, solved)
@@ -134,9 +132,7 @@ def _check(bpy: Any, np: Any, motion_path: Path, asset: Path, frames: int, polis
                 # the polish itself departs from the raw source is tracked
                 # separately below.
                 joint = source_index[channel.source]
-                carried = (
-                    source_frames[offset, joint, :3, :3] @ motion.rest_frames[joint, :3, :3].T
-                )
+                carried = source_frames[offset, joint, :3, :3] @ motion.rest_frames[joint, :3, :3].T
                 expected = carried @ plan.target_rest_global[index]
                 gap = geodesic(evaluated, expected)
                 track("relative_transfer_deg", channel.name, gap, frame)
@@ -209,10 +205,7 @@ def main() -> None:
     import bpy  # type: ignore
     import numpy as np
 
-    reports = [
-        _check(bpy, np, motion, args.asset, args.frames, not args.faithful)
-        for motion in args.motion
-    ]
+    reports = [_check(bpy, np, motion, args.asset, args.frames, not args.faithful) for motion in args.motion]
     payload: dict[str, Any] = reports[0] if len(reports) == 1 else {"clips": reports}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

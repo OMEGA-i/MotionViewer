@@ -1,6 +1,6 @@
 """Render a batch of soma clips as source-vs-character comparisons. Local helper.
 
-  uv run python scripts/_batch_review.py --clips .local/soma/.../clips/t2m --limit 8
+uv run python scripts/_batch_review.py --clips .local/soma/.../clips/t2m --limit 8
 """
 
 from __future__ import annotations

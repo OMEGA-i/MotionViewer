@@ -143,7 +143,9 @@ def main() -> None:
     )
     if args.toon:
         report = apply_toon_shading(actor.mesh_objects, style=style)
-        print(f"toon: {len(report['shaded'])} shaded, {len(report['unlit'])} unlit, {len(report['skipped'])} skipped")
+        print(
+            f"toon: {len(report['shaded'])} shaded, {len(report['unlit'])} unlit, {len(report['skipped'])} skipped"
+        )
         add_toon_lighting(mins.tolist(), maxs.tolist())
     else:
         add_lighting(mins.tolist(), maxs.tolist())

@@ -175,9 +175,15 @@ def default_backend_registry() -> BackendRegistry:
             if not fbx_path:
                 errors.append("fbx_path is required for fbx_skeleton backend")
             else:
+                from pathlib import Path as _Path
+
                 from motionviewer.assets.fbx_catalog import validate_fbx_path
 
-                errors.extend(validate_fbx_path(fbx_path))
+                if _Path(fbx_path).suffix.lower() == ".pmx":
+                    if not _Path(fbx_path).is_file():
+                        errors.append(f"fbx_path does not exist: {fbx_path}")
+                else:
+                    errors.extend(validate_fbx_path(fbx_path))
             return errors
 
     return BackendRegistry([_LazySmplxAddonBackend(), _LazyFBXSkeletonBackend()])

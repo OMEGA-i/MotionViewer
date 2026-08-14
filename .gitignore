@@ -38,3 +38,15 @@ outputs/
 # explicitly prohibit redistribution; do not weaken these rules.
 assets/**
 !assets/README.md
+
+# Converted characters embed the source model: a .blend packs its textures,
+# mesh and weights, so publishing one redistributes it. Same rule as assets/.
+converted/**
+!converted/README.md
+
+# Local Blender build, bundled mmd_tools, and extracted motion archives.
+.local/
+
+# Symlinks mmd_tools resolves toon textures through, created at render time.
+/toon01.bmp
+/toon05.bmp

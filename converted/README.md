@@ -21,13 +21,39 @@ motion set stays out of git too.
 ## Layout
 
 ```
-converted/<character>/
-  <character>_<clip>.blend      Retargeted action, textures packed, timeline set
-  review/index.html             Open in a browser: MP4s + the decision stills
-  review/videos/*.mp4           Source skeleton beside the character, one camera
-  retarget_validation.json      Per-bone, per-frame agreement numbers
-  rig_dump.json                 The rig as imported: hierarchy, rest, weights
+converted/showcase/              The full run. Start here.
+  index.html                     Every clip as a video card, ranked best first
+  videos/<rec_id>_<character>.mp4
+  manifest.json                  Per-clip scores and captions
+
+converted/showcase_cast/         The same top clips on the other characters
+
+converted/<character>/           One-off deliverables for a single clip
+  <character>_<clip>.blend       Retargeted action, textures packed, timeline set
+  review/index.html              MP4s with the source skeleton beside the
+                                 character, plus the decision stills
+  retarget_validation.json       Per-bone, per-frame agreement numbers
+  rig_dump.json                  The rig as imported: hierarchy, rest, weights
 ```
+
+Clip order in the showcase is not arbitrary: `scripts/score_motion_quality.py`
+ranks the set cleanest-first and then most-expressive, because the retarget is
+exact and therefore source quality is the ceiling. Clips above the quality bar are
+excluded — on the tested set, 301 of 631 pass. The card for each clip shows its
+peak angular velocity and jitter, so a clip that still looks wrong can be checked
+against its own numbers.
+
+## Adding a character
+
+```bash
+uv run python scripts/onboard_character.py --archive ~/Downloads/model.zip --name <slug>
+```
+
+Five gates, each of which has caught a real failure: texture filenames verified
+against the PMX's own table, bone mapping, rest-gap sanity against the other rigs,
+the numeric retarget check, and an identity T-pose plus a posed frame. It prints
+`READY` or `REVIEW`. Then add the slug to `CHARACTERS` in
+`scripts/generate_showcase.py`.
 
 ## Regenerating
 
@@ -57,3 +83,21 @@ uv run python scripts/build_review_page.py \
 
 The retarget design, the per-bone transfer modes and what the polish pass trades
 away are documented in [docs/retarget.md](../docs/retarget.md).
+
+## Full generation
+
+```bash
+CLIPS=.local/soma_all/soma_tmr_test_400m_all_fullpose/clips/t2m
+
+uv run python scripts/score_motion_quality.py --clips $CLIPS --meta .local/soma_meta \
+  --output outputs/motion_scores.json
+
+uv run python scripts/generate_showcase.py --clips $CLIPS \
+  --scores outputs/motion_scores.json --character yoimiya --limit 0 \
+  --resolution 800 --output converted/showcase
+```
+
+The generator is resumable — re-running it skips clips whose MP4 already exists,
+so an interrupted run costs nothing. It deletes each clip's frames as soon as they
+are encoded, because keeping them would be about 18 GB. Roughly 80 s per clip at
+800 px, so the full clean set is a few hours.

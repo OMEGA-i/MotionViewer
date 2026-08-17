@@ -63,12 +63,14 @@ def main() -> None:
     parser.add_argument("--in-place", action="store_true", help="Zero root translation")
     parser.add_argument("--no-spring", action="store_true")
     parser.add_argument("--ground", action="store_true", help="Opaque floor instead of transparency")
+    parser.add_argument("--expression", default="smile", help="Facial expression preset, or 'none'")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
 
     import bpy  # type: ignore
     import numpy as np
 
     from motionviewer.blender.camera import add_camera_for_bounds
+    from motionviewer.blender.mmd_expression import apply_expression
     from motionviewer.blender.mmd_spring import apply_secondary_motion
     from motionviewer.blender.mmd_toon import add_ground, add_outline, add_toon_lighting, apply_toon_shading
     from motionviewer.blender.render import _normalize_engine
@@ -100,6 +102,7 @@ def main() -> None:
         retarget_mode="direct",
         motion_overrides=overrides,
         mmd_physics=not args.no_spring,
+        mmd_morphs=args.expression != "none",
     )
     scene = bpy.context.scene
     frame_start = int(scene.frame_start)
@@ -108,6 +111,11 @@ def main() -> None:
         joints = np.asarray(payload["joints22"], dtype=np.float64)
     total = len(joints)
     picks = [frame_start + offset for offset in _pick_frames(joints, args.count)]
+
+    if args.expression != "none":
+        print(
+            f"expression: {json.dumps(apply_expression(actor.mesh_objects, args.expression), ensure_ascii=False)}"
+        )
 
     if not args.no_spring:
         info = apply_secondary_motion(bpy, actor.armature, frame_start=frame_start, num_frames=total)

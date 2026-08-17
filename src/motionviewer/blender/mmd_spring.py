@@ -34,10 +34,16 @@ _HELPER_PREFIXES = ("_shadow_", "_dummy_")
 class SpringStyle:
     """How much the hair lags. Per frame at 30 fps."""
 
-    # Pull back toward the rigid pose. Higher is stiffer hair.
-    stiffness: float = 0.34
-    # Velocity retained per frame. Higher swings longer.
-    damping: float = 0.76
+    # Pull back toward the rigid pose, and how much velocity survives each frame.
+    #
+    # These two decide whether the result reads as lag or as wind. For this
+    # discrete spring the critically damped pair satisfies (1 + d - k)^2 = 4d, so
+    # k=0.34 is critical at d~0.17; the first shipped values were k=0.34, d=0.76,
+    # which is heavily *under* damped — hair and sashes overshot, oscillated, and
+    # looked like someone was pointing a fan at the character. Cloth in a shot
+    # should be moved by the body, not blown.
+    stiffness: float = 0.50
+    damping: float = 0.30
     # Extra downward acceleration, in metres per frame squared. Zero by default,
     # and that is not an omission: the model's rest pose is already the hanging
     # pose, so the artist has accounted for gravity. Adding it again drags every
@@ -46,7 +52,13 @@ class SpringStyle:
     gravity: float = 0.0
     # Hard cap on how far a bone may deviate from its rigid direction, which
     # keeps a fast turn from flinging hair through the head.
-    max_angle_degrees: float = 38.0
+    max_angle_degrees: float = 24.0
+    # Budget for the whole chain, not per bone. Deflection accumulates down a
+    # chain, so a per-bone cap alone lets a 10-bone scarf end up 240 degrees off
+    # its rest while a 5-bone ponytail manages 120 — the same setting reads as
+    # drape on one and as a gale on the other. Each bone gets the smaller of the
+    # per-bone cap and an equal share of this.
+    max_total_degrees: float = 80.0
     # Frames simulated before the first rendered frame so hair starts hanging.
     settle_frames: int = 8
     # Chains longer than this are truncated; nothing useful is that deep.
@@ -222,8 +234,25 @@ def simulate_spring_bones(
     velocities: dict[str, np.ndarray] = {
         name: np.zeros(3, dtype=np.float64) for chain in chains for name in chain
     }
-    limit = float(np.cos(np.radians(settings.max_angle_degrees)))
     written = 0
+    # Per-chain angle cap, so long chains do not accumulate more total swing.
+    limits = {
+        id(chain): float(
+            np.cos(
+                np.radians(
+                    min(
+                        settings.max_angle_degrees,
+                        settings.max_total_degrees / max(len(chain), 1),
+                    )
+                )
+            )
+        )
+        for chain in chains
+    }
+    caps = {
+        id(chain): min(settings.max_angle_degrees, settings.max_total_degrees / max(len(chain), 1))
+        for chain in chains
+    }
 
     first = frame_start - max(settings.settle_frames, 0)
     for frame in range(first, frame_start + num_frames):
@@ -234,6 +263,8 @@ def simulate_spring_bones(
         object_matrix = np.asarray(evaluated.matrix_world, dtype=np.float64)
 
         for chain in chains:
+            limit = limits[id(chain)]
+            cap = caps[id(chain)]
             parent_bone = bones[chain[0]].parent
             if parent_bone is None:
                 continue
@@ -267,7 +298,7 @@ def simulate_spring_bones(
                     # Too far from the rigid pose; slide back along the arc.
                     blend = _rotation_between(rigid_direction, direction)
                     axis_angle = np.arccos(np.clip(cosine, -1.0, 1.0))
-                    scale = float(np.radians(settings.max_angle_degrees) / max(axis_angle, 1e-9))
+                    scale = float(np.radians(cap) / max(axis_angle, 1e-9))
                     direction = rigid_direction + (blend @ rigid_direction - rigid_direction) * scale
                     direction = direction / max(float(np.linalg.norm(direction)), 1e-12)
                 tip = head + direction * length

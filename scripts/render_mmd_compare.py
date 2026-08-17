@@ -54,6 +54,10 @@ def main() -> None:
         action="store_true",
         help="Bake secondary motion onto the bones the PMX marks as dynamic",
     )
+    parser.add_argument("--spring-stiffness", type=float, default=None)
+    parser.add_argument("--spring-damping", type=float, default=None)
+    parser.add_argument("--spring-max-angle", type=float, default=None)
+    parser.add_argument("--expression", default="smile", help="Facial expression preset, or 'none'")
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
 
     import bpy  # type: ignore
@@ -61,7 +65,8 @@ def main() -> None:
     from mathutils import Vector  # type: ignore
 
     from motionviewer.blender.camera import add_camera_for_bounds
-    from motionviewer.blender.mmd_spring import apply_secondary_motion
+    from motionviewer.blender.mmd_expression import apply_expression
+    from motionviewer.blender.mmd_spring import SpringStyle, apply_secondary_motion
     from motionviewer.blender.mmd_toon import add_ground, add_outline, add_toon_lighting, apply_toon_shading
     from motionviewer.blender.render import _normalize_engine
     from motionviewer.blender.retarget.pipeline import create_fbx_actor_from_npz
@@ -92,6 +97,7 @@ def main() -> None:
         retarget_mode="direct",
         mmd_polish={"enabled": not args.faithful},
         mmd_physics=args.spring,
+        mmd_morphs=args.expression != "none",
     )
     scene = bpy.context.scene
     frame_start = int(scene.frame_start)
@@ -100,6 +106,11 @@ def main() -> None:
         joints = np.asarray(payload["joints22"], dtype=np.float64)
     total = len(joints) if args.frames <= 0 else min(args.frames, len(joints))
     frame_end = frame_start + total - 1
+
+    expression_info: dict = {"preset": "none"}
+    if args.expression != "none":
+        expression_info = apply_expression(actor.mesh_objects, args.expression)
+        print(f"expression: {json.dumps(expression_info, ensure_ascii=False)}")
 
     transfer = json.loads(actor.armature.get("motionviewer_mmd_transfer", "{}"))
 
@@ -215,7 +226,17 @@ def main() -> None:
         add_lighting(mins.tolist(), maxs.tolist())
     spring_info: dict = {"chains": 0}
     if args.spring:
-        spring_info = apply_secondary_motion(bpy, actor.armature, frame_start=frame_start, num_frames=total)
+        defaults = SpringStyle()
+        style = SpringStyle(
+            stiffness=defaults.stiffness if args.spring_stiffness is None else args.spring_stiffness,
+            damping=defaults.damping if args.spring_damping is None else args.spring_damping,
+            max_angle_degrees=(
+                defaults.max_angle_degrees if args.spring_max_angle is None else args.spring_max_angle
+            ),
+        )
+        spring_info = apply_secondary_motion(
+            bpy, actor.armature, frame_start=frame_start, num_frames=total, style=style
+        )
         print(f"spring: {json.dumps(spring_info, ensure_ascii=False)}")
     scene.render.engine = _normalize_engine("BLENDER_EEVEE")
     scene.render.resolution_x = width
@@ -261,6 +282,7 @@ def main() -> None:
                 "faithful": bool(args.faithful),
                 "toon": bool(args.toon),
                 "spring": spring_info,
+                "expression": expression_info,
                 "transfer": transfer.get("polish", {}),
             },
             ensure_ascii=False,

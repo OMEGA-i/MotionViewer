@@ -353,3 +353,49 @@ bodies can own them, and once the bodies are deleted those bones float at the
 armature origin and smear across the frame. That was the second failed attempt.
 
 Pass `--spring` to `scripts/render_mmd_compare.py`.
+
+## Expressions
+
+Facial expressions are vertex morphs in the PMX, and the importer was only asked
+for `MESH` and `ARMATURE` — so every render before this carried **no morphs at
+all**. The face was the model's neutral mesh, which on an anime model reads as
+faintly stern. Nothing had been switched on by accident; nothing had been switched
+on at all.
+
+`blender/mmd_expression.py` imports them (`morphs=True`) and applies a preset.
+Morph names are a de facto standard across the MMD ecosystem, and all three rigs
+tested carry the same vocabulary — `にこり` narrows the eyes into a gentle smile,
+`口角上げ` lifts the mouth corners, `笑い` closes the eyes into arcs. Each slot
+lists aliases, and a slot that resolves to nothing is reported rather than
+silently skipped, because a silently neutral face looks like a bug.
+
+`smile` is the default: a closed-mouth smile, which survives any camera angle and
+any motion where an open mouth would start to look like shouting.
+
+Scale matters, and it is worth being blunt about it. At showcase framing the head
+is about 40 px in a 1000 px frame, and switching the whole preset on changes **72
+pixels**. The expression is for close-ups and figure stills; it will not rescue a
+full-body video. What *did* make faces look wrong in the earliest batch was
+exposure — three area lights at 900/420/280 W blew the face to white with a few
+dark slashes left, which reads as a grimace. Cel shading fixed that, and it is a
+separate problem from the morphs.
+
+## Retuning the springs
+
+The first shipped spring was `stiffness=0.34, damping=0.76`, and it looked like
+someone was pointing a fan at the character: sashes lifted horizontally and hair
+splayed. The relevant quantity is not "critically damped" — this discrete spring
+is underdamped for any sane stiffness — but how fast the oscillation *decays*. The
+complex roots have magnitude `sqrt(damping)`, so that is the per-frame amplitude
+ratio: 0.76 decays 13% per frame and leaves about half a second of ringing after
+every move, while 0.30 decays 45% per frame and is gone in four.
+
+Defaults are now `stiffness=0.50, damping=0.30`, plus a whole-chain deflection
+budget. A per-bone cap alone is length-dependent: at 24 degrees each, a 10-bone
+scarf can end up 240 degrees off its rest while a 5-bone ponytail manages 120, so
+one setting reads as drape on one chain and as a gale on the other. Each bone now
+gets the smaller of the per-bone cap and an equal share of `max_total_degrees`.
+
+One thing tuning cannot fix: some models are *sculpted* mid-motion. Furina's hair
+streams horizontally in her rest mesh, and it does so with the simulation switched
+off entirely. Making it hang would mean editing the character, not the solver.

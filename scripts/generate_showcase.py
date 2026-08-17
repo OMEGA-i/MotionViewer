@@ -162,6 +162,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=0, help="0 renders the whole shortlist")
     parser.add_argument("--max-penalty", type=float, default=0.25)
     parser.add_argument("--no-spring", action="store_true")
+    parser.add_argument("--expression", default="smile", help="Facial expression preset, or 'none'")
     parser.add_argument("--title", default="SMPL-X → MMD characters · full showcase")
     args = parser.parse_args()
 
@@ -236,6 +237,8 @@ def main() -> None:
                 "--aspect",
                 str(args.aspect),
                 "--toon",
+                "--expression",
+                args.expression,
                 "--caption",
                 item.get("caption", ""),
             ]

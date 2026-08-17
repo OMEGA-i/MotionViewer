@@ -686,3 +686,79 @@ def test_driven_bones_are_never_simulated() -> None:
     chains = build_spring_chains(armature, {"髮_0", "髮_1"}, driven={"頭", "髮_0"})
     assert all("髮_0" not in chain for chain in chains)
     assert [chain for chain in chains if chain[0] == "髮_1"]
+
+
+class _ShapeKeyBlock:
+    def __init__(self, name: str, value: float = 0.0) -> None:
+        self.name = name
+        self.value = value
+
+
+class _MorphMesh:
+    def __init__(self, names: list[str]) -> None:
+        blocks = [_ShapeKeyBlock(name) for name in names]
+        self.data = type("MeshData", (), {"shape_keys": type("Keys", (), {"key_blocks": blocks})()})()
+
+
+def test_expression_presets_resolve_standard_mmd_morph_names() -> None:
+    """Expressions come from the model's own morphs, which follow MMD convention."""
+    from motionviewer.blender.mmd_expression import apply_expression
+
+    mesh = _MorphMesh(["Basis", "まばたき", "にこり", "口角上げ", "あ", "い"])
+    report = apply_expression([mesh], "smile")
+    assert report["applied"] == {"にこり": 0.62, "口角上げ": 0.55}
+    assert report["missing"] == []
+    blocks = {block.name: block.value for block in mesh.data.shape_keys.key_blocks}
+    assert blocks["にこり"] == pytest.approx(0.62)
+    assert blocks["まばたき"] == 0.0
+
+
+def test_expression_amount_scales_the_whole_preset() -> None:
+    from motionviewer.blender.mmd_expression import apply_expression
+
+    mesh = _MorphMesh(["Basis", "にこり", "口角上げ"])
+    report = apply_expression([mesh], "smile", amount=0.5)
+    assert report["applied"] == {"にこり": 0.31, "口角上げ": 0.275}
+
+
+def test_expression_reports_morphs_the_model_lacks_instead_of_ignoring_them() -> None:
+    """A model missing a morph must say so; a silently neutral face looks like a bug."""
+    from motionviewer.blender.mmd_expression import apply_expression
+
+    mesh = _MorphMesh(["Basis", "口角上げ"])
+    report = apply_expression([mesh], "smile")
+    assert report["applied"] == {"口角上げ": 0.55}
+    assert report["missing"] == ["にこり"]
+
+
+def test_expression_does_not_stack_across_calls() -> None:
+    from motionviewer.blender.mmd_expression import apply_expression
+
+    mesh = _MorphMesh(["Basis", "にこり", "口角上げ", "笑い"])
+    apply_expression([mesh], "happy")
+    apply_expression([mesh], "smile")
+    blocks = {block.name: block.value for block in mesh.data.shape_keys.key_blocks}
+    # 笑い belongs to `happy` only, so it must be back at rest.
+    assert blocks["笑い"] == 0.0
+    assert blocks["にこり"] == pytest.approx(0.62)
+
+
+def test_spring_oscillation_dies_within_a_few_frames() -> None:
+    """The windy-cloth regression, stated as the quantity that actually mattered.
+
+    This discrete spring is underdamped for any sane stiffness, so "critically
+    damped" is the wrong bar. What decides whether cloth reads as lag or as wind
+    is how fast the oscillation *decays*: the complex roots have magnitude
+    ``sqrt(damping)``, so that is the per-frame amplitude ratio. The first shipped
+    damping of 0.76 decays only 13% per frame, leaving about half a second of
+    visible wobble after every move; 0.30 decays 45% per frame and is gone in
+    about four frames.
+    """
+    from motionviewer.blender.mmd_spring import SpringStyle
+
+    style = SpringStyle()
+    decay_per_frame = style.damping**0.5
+    assert decay_per_frame < 0.62, "cloth would keep swinging long after the body stops"
+    # Ten frames is a third of a second at 30 fps; nothing should still be ringing.
+    assert decay_per_frame**10 < 0.01
+    assert style.max_angle_degrees <= 26.0

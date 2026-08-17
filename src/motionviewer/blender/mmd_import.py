@@ -45,8 +45,14 @@ def import_pmx_character(
     label: str,
     scale: float = 0.08,
     physics: bool = False,
+    morphs: bool = False,
 ) -> tuple[Any, list[Any]]:
     """Import a PMX file and return ``(armature, meshes)``.
+
+    ``physics`` also imports the rigid bodies the PMX carries for hair, skirts and
+    ``morphs`` imports the model's facial expressions as shape keys.  Without it
+    the face is stuck on the neutral mesh, which on an anime model reads as a
+    grimace next to the same character smiling.
 
     ``physics`` also imports the rigid bodies the PMX carries for hair, skirts and
     accessories.  They are imported for their **metadata only** — which bone each
@@ -62,7 +68,7 @@ def import_pmx_character(
     before = set(bpy.data.objects)
     PMXImporter().execute(
         filepath=str(path),
-        types={"MESH", "ARMATURE", "PHYSICS"} if physics else {"MESH", "ARMATURE"},
+        types={"MESH", "ARMATURE"} | ({"PHYSICS"} if physics else set()) | ({"MORPHS"} if morphs else set()),
         scale=float(scale),
         clean_model=True,
         remove_doubles=False,

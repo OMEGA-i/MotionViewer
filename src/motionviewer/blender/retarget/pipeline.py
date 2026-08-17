@@ -32,6 +32,7 @@ def create_fbx_actor_from_npz(
     motion_overrides: dict | None = None,
     mmd_polish: dict | None = None,
     mmd_physics: bool = False,
+    mmd_morphs: bool = False,
 ) -> SmplxActor:
     """Import an FBX character and animate it from SMPL-X motion data.
 
@@ -58,6 +59,7 @@ def create_fbx_actor_from_npz(
         unit_scale=unit_scale,
         frame_start=frame_start,
         mmd_physics=mmd_physics,
+        mmd_morphs=mmd_morphs,
     )
 
     smplx_armature = boot.smplx_armature

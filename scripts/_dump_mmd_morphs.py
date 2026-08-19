@@ -34,7 +34,9 @@ def main() -> None:
     from motionviewer.blender.scene import clear_scene
 
     clear_scene()
-    armature, meshes = import_pmx_character(bpy, args.asset, label="morph", scale=0.08)
+    # morphs=True is the whole point of this script: without it the importer is asked
+    # for MESH and ARMATURE only and every model reports zero shape keys.
+    armature, meshes = import_pmx_character(bpy, args.asset, label="morph", scale=0.08, morphs=True)
     bpy.context.view_layer.update()
 
     report: dict = {"asset": str(args.asset), "meshes": []}

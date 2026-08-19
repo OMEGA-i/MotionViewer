@@ -315,6 +315,15 @@ be noticed:
   `scripts/_diagnose_motion.py` measures both; nothing yet filters on them.
 - Face shadow is a flattened ramp, not the game's SDF map.
 - Fingers hold a static relaxed curl; body-22 has no hand pose.
+- **Ground contact is grounded on the rest pose, not the animation.**
+  `_mmd_ground_offset` puts the lowest vertex of the *A-pose* mesh at `Z=0`; a posed
+  character has bent legs, so its soles sit 4–8 cm high for the whole clip. The
+  render paths compensate by lowering the floor prop (see
+  [dataset visualisation](dataset-visualisation.md)), which is why the feet look
+  planted, but the character itself is still above `Z=0`. Anything that assumes the
+  floor is `Z=0` — a physics prop, a reflection plane, a contact test — would be
+  wrong by that much. The fix is to re-derive the offset from the animated soles,
+  which every render path depends on.
 
 ## Secondary motion
 

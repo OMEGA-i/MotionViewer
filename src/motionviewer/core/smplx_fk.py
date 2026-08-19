@@ -129,6 +129,64 @@ def rodrigues(axis_angle: np.ndarray) -> np.ndarray:
     return matrices.reshape(*leading, 3, 3)
 
 
+def axis_angle_from_rotations(matrices: np.ndarray) -> np.ndarray:
+    """Inverse of :func:`rodrigues`. Shape ``(..., 3, 3)`` to ``(..., 3)``.
+
+    Routed through a quaternion rather than ``arccos`` of the trace, which loses
+    all precision near identity — exactly where a smoothed pose sequence lives —
+    and cannot recover the axis at all near a half turn.  The branch picks
+    whichever quaternion component is largest, so no denominator approaches zero.
+    """
+    array = np.asarray(matrices, dtype=np.float64)
+    if array.shape[-2:] != (3, 3):
+        raise ValueError("rotation arrays must end with a 3x3 block")
+    leading = array.shape[:-2]
+    flat = array.reshape(-1, 3, 3)
+    result = np.zeros((len(flat), 3), dtype=np.float64)
+    for index, matrix in enumerate(flat):
+        trace = float(matrix[0, 0] + matrix[1, 1] + matrix[2, 2])
+        if trace > -0.5:
+            scale = float(np.sqrt(max(trace + 1.0, 0.0))) * 2.0
+            w = 0.25 * scale
+            vector = np.array(
+                (
+                    matrix[2, 1] - matrix[1, 2],
+                    matrix[0, 2] - matrix[2, 0],
+                    matrix[1, 0] - matrix[0, 1],
+                )
+            ) / max(scale, 1e-300)
+        else:
+            # Near a half turn the vector part dominates; take it from the largest
+            # diagonal entry.
+            axis = int(np.argmax(np.diag(matrix)))
+            other = [(axis + 1) % 3, (axis + 2) % 3]
+            scale = (
+                float(
+                    np.sqrt(
+                        max(
+                            1.0
+                            + matrix[axis, axis]
+                            - matrix[other[0], other[0]]
+                            - matrix[other[1], other[1]],
+                            0.0,
+                        )
+                    )
+                )
+                * 2.0
+            )
+            vector = np.zeros(3)
+            vector[axis] = 0.25 * scale
+            vector[other[0]] = (matrix[other[0], axis] + matrix[axis, other[0]]) / max(scale, 1e-300)
+            vector[other[1]] = (matrix[other[1], axis] + matrix[axis, other[1]]) / max(scale, 1e-300)
+            w = (matrix[other[1], other[0]] - matrix[other[0], other[1]]) / max(scale, 1e-300)
+        norm = float(np.linalg.norm(vector))
+        if norm < 1e-15:
+            continue
+        angle = 2.0 * float(np.arctan2(norm, abs(w)))
+        result[index] = vector / norm * (angle if w >= 0.0 else -angle)
+    return result.reshape(*leading, 3)
+
+
 def global_rotations(global_orient: np.ndarray, body_pose: np.ndarray) -> np.ndarray:
     """Compose body-22 world rotations. Shape ``(frames, 22, 3, 3)``."""
     roots = rodrigues(np.asarray(global_orient, dtype=np.float64))

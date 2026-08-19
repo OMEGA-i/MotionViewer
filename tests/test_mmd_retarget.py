@@ -704,21 +704,90 @@ def test_expression_presets_resolve_standard_mmd_morph_names() -> None:
     """Expressions come from the model's own morphs, which follow MMD convention."""
     from motionviewer.blender.mmd_expression import apply_expression
 
-    mesh = _MorphMesh(["Basis", "まばたき", "にこり", "口角上げ", "あ", "い"])
+    mesh = _MorphMesh(["Basis", "まばたき", "にこり", "なごみ", "口角上げ", "にやり", "あ"])
     report = apply_expression([mesh], "smile")
-    assert report["applied"] == {"にこり": 0.62, "口角上げ": 0.55}
+    assert report["applied"] == {"にこり": 0.5, "口角上げ": 0.75}
     assert report["missing"] == []
     blocks = {block.name: block.value for block in mesh.data.shape_keys.key_blocks}
-    assert blocks["にこり"] == pytest.approx(0.62)
+    assert blocks["口角上げ"] == pytest.approx(0.75)
     assert blocks["まばたき"] == 0.0
+
+
+def test_the_default_smile_leaves_the_eyes_alone() -> None:
+    """These characters are designed around large open eyes.
+
+    Narrowing them reads as a warmer smile in a close-up but changes who the
+    character looks like, and at full-body scale the irises disappear into slits. The
+    eye morph therefore lives in ``smile_eyes``, not in the default.
+    """
+    from motionviewer.blender.mmd_expression import apply_expression
+
+    names = ["Basis", "にこり", "なごみ", "笑い", "口角上げ", "にやり"]
+    smile = apply_expression([_MorphMesh(names)], "smile")["applied"]
+    assert "なごみ" not in smile and "笑い" not in smile
+    assert smile["口角上げ"] == pytest.approx(0.75)
+
+    with_eyes = apply_expression([_MorphMesh(names)], "smile_eyes")["applied"]
+    assert with_eyes["なごみ"] == pytest.approx(0.7)
+
+
+def test_the_default_smile_keeps_the_mouth_a_line() -> None:
+    """These faces draw the mouth as two strokes with a gap in the middle.
+
+    Pushing the corners to 1.0 stretches both strokes and the gap between them reads
+    as an open mouth with fangs, so the default stays well under that, and does not
+    stack the near-duplicate ``にやり`` on top.
+    """
+    from motionviewer.blender.mmd_expression import apply_expression
+
+    mesh = _MorphMesh(["Basis", "にこり", "口角上げ", "にやり"])
+    applied = apply_expression([mesh], "smile")["applied"]
+    assert applied["口角上げ"] <= 0.8
+    assert "にやり" not in applied, "にやり duplicates 口角上げ here; stacking doubles the effect"
+    wide = apply_expression([_MorphMesh(["Basis", "にこり", "口角上げ", "にやり"])], "smile_wide")["applied"]
+    assert wide["口角上げ"] == pytest.approx(1.0) and wide["にやり"] == pytest.approx(0.6)
+
+
+def test_smile_eyes_is_the_default_plus_the_eye_morph() -> None:
+    """The two must not drift apart: smile_eyes is smile with one slot added."""
+    from motionviewer.blender.mmd_expression import EXPRESSION_PRESETS
+
+    assert set(EXPRESSION_PRESETS["smile"]).issubset(set(EXPRESSION_PRESETS["smile_eyes"]))
+
+
+def test_smile_raises_the_mouth_corners() -> None:
+    """The user-visible requirement: the corners of the mouth go up."""
+    from motionviewer.blender.mmd_expression import apply_expression
+
+    mesh = _MorphMesh(["Basis", "口角上げ", "口角下げ", "なごみ"])
+    applied = apply_expression([mesh], "smile")["applied"]
+    assert applied["口角上げ"] > 0.0
+    assert "口角下げ" not in applied, "the corners go up, never down"
+
+
+def test_expression_resolves_half_and_full_width_digit_variants() -> None:
+    """Silver Wolf has ``にやり3`` and no plain ``にやり``; Yoimiya has ``にやり３``."""
+    from motionviewer.blender.mmd_expression import apply_expression
+
+    for variant in ("にやり3", "にやり３", "にやり２"):
+        mesh = _MorphMesh(["Basis", "なごみ", "口角上げ", variant])
+        applied = apply_expression([mesh], "smile_wide")["applied"]
+        assert applied.get(variant) == pytest.approx(0.6), variant
+
+
+def test_expression_resolves_the_numbered_mouth_corner_variant() -> None:
+    from motionviewer.blender.mmd_expression import apply_expression
+
+    mesh = _MorphMesh(["Basis", "なごみ", "口角上げ1"])
+    assert apply_expression([mesh], "smile")["applied"]["口角上げ1"] == pytest.approx(0.75)
 
 
 def test_expression_amount_scales_the_whole_preset() -> None:
     from motionviewer.blender.mmd_expression import apply_expression
 
-    mesh = _MorphMesh(["Basis", "にこり", "口角上げ"])
+    mesh = _MorphMesh(["Basis", "にこり", "口角上げ", "にやり"])
     report = apply_expression([mesh], "smile", amount=0.5)
-    assert report["applied"] == {"にこり": 0.31, "口角上げ": 0.275}
+    assert report["applied"] == {"にこり": 0.25, "口角上げ": 0.375}
 
 
 def test_expression_reports_morphs_the_model_lacks_instead_of_ignoring_them() -> None:
@@ -727,20 +796,42 @@ def test_expression_reports_morphs_the_model_lacks_instead_of_ignoring_them() ->
 
     mesh = _MorphMesh(["Basis", "口角上げ"])
     report = apply_expression([mesh], "smile")
-    assert report["applied"] == {"口角上げ": 0.55}
-    assert report["missing"] == ["にこり"]
+    assert report["applied"] == {"口角上げ": 0.75}
+    assert set(report["missing"]) == {"にこり"}
 
 
 def test_expression_does_not_stack_across_calls() -> None:
     from motionviewer.blender.mmd_expression import apply_expression
 
-    mesh = _MorphMesh(["Basis", "にこり", "口角上げ", "笑い"])
-    apply_expression([mesh], "happy")
+    mesh = _MorphMesh(["Basis", "にこり", "なごみ", "口角上げ", "笑い"])
+    apply_expression([mesh], "smile_eyes")
     apply_expression([mesh], "smile")
     blocks = {block.name: block.value for block in mesh.data.shape_keys.key_blocks}
-    # 笑い belongs to `happy` only, so it must be back at rest.
-    assert blocks["笑い"] == 0.0
-    assert blocks["にこり"] == pytest.approx(0.62)
+    # なごみ belongs to smile_eyes only, so it must be back at rest.
+    assert blocks["なごみ"] == 0.0
+    assert blocks["口角上げ"] == pytest.approx(0.75)
+
+
+def test_happy_closes_the_eyes_and_smile_does_not() -> None:
+    """``笑い`` hides the eyes, so it belongs to happy rather than the default."""
+    from motionviewer.blender.mmd_expression import apply_expression
+
+    names = ["Basis", "にこり", "なごみ", "笑い", "口角上げ", "にやり"]
+    smile = apply_expression([_MorphMesh(names)], "smile")["applied"]
+    happy = apply_expression([_MorphMesh(names)], "happy")["applied"]
+    assert "笑い" not in smile
+    assert happy["笑い"] == pytest.approx(1.0)
+
+
+def test_neutral_preset_clears_everything() -> None:
+    from motionviewer.blender.mmd_expression import apply_expression
+
+    mesh = _MorphMesh(["Basis", "なごみ", "口角上げ"])
+    apply_expression([mesh], "smile")
+    report = apply_expression([mesh], "neutral")
+    assert report["applied"] == {}
+    blocks = {block.name: block.value for block in mesh.data.shape_keys.key_blocks}
+    assert all(value == 0.0 for name, value in blocks.items() if name != "Basis")
 
 
 def test_spring_oscillation_dies_within_a_few_frames() -> None:
@@ -762,3 +853,75 @@ def test_spring_oscillation_dies_within_a_few_frames() -> None:
     # Ten frames is a third of a second at 30 fps; nothing should still be ringing.
     assert decay_per_frame**10 < 0.01
     assert style.max_angle_degrees <= 26.0
+
+
+# ---------------------------------------------------------------------------
+# axis-angle round trip
+# ---------------------------------------------------------------------------
+#
+# Needed to write a filtered pose sequence back out as axis-angle. Routed
+# through a quaternion rather than arccos of the trace: a smoothed sequence sits
+# near identity, where arccos loses all its precision, and near a half turn the
+# trace alone cannot recover the axis at all.
+
+
+def _round_trip_error(vectors: np.ndarray) -> float:
+    from motionviewer.core.smplx_fk import axis_angle_from_rotations
+
+    matrices = rodrigues(vectors)
+    return float(np.abs(matrices - rodrigues(axis_angle_from_rotations(matrices))).max())
+
+
+def test_axis_angle_round_trip_is_exact_for_moderate_rotations():
+    rng = np.random.default_rng(11)
+    assert _round_trip_error(rng.normal(size=(400, 3)) * 0.7) < 1e-12
+
+
+def test_axis_angle_round_trip_survives_identity():
+    assert _round_trip_error(np.zeros((4, 3))) == 0.0
+
+
+def test_axis_angle_round_trip_survives_tiny_rotations():
+    """Where a smoothed pose lives, and where arccos of the trace breaks down."""
+    rng = np.random.default_rng(12)
+    assert _round_trip_error(rng.normal(size=(200, 3)) * 1e-8) < 1e-12
+
+
+def test_axis_angle_round_trip_survives_a_half_turn():
+    """The trace is -1 for every axis here, so the branch has to change."""
+    half = np.array(
+        [
+            [np.pi, 0.0, 0.0],
+            [0.0, np.pi, 0.0],
+            [0.0, 0.0, np.pi],
+            [np.pi / np.sqrt(3.0)] * 3,
+            [np.pi - 1e-9, 0.0, 0.0],
+        ]
+    )
+    assert _round_trip_error(half) < 1e-12
+
+
+def test_axis_angle_recovers_the_vector_when_it_is_unique():
+    """Below a half turn the representation is unique, so the vector must match."""
+    from motionviewer.core.smplx_fk import axis_angle_from_rotations
+
+    rng = np.random.default_rng(13)
+    axes = rng.normal(size=(300, 3))
+    axes /= np.linalg.norm(axes, axis=1, keepdims=True)
+    vectors = axes * rng.uniform(0.01, 3.0, (300, 1))
+    assert np.abs(axis_angle_from_rotations(rodrigues(vectors)) - vectors).max() < 1e-12
+
+
+def test_axis_angle_rejects_a_bad_shape():
+    from motionviewer.core.smplx_fk import axis_angle_from_rotations
+
+    with pytest.raises(ValueError, match="3x3"):
+        axis_angle_from_rotations(np.zeros((5, 3)))
+
+
+def test_axis_angle_preserves_leading_dimensions():
+    from motionviewer.core.smplx_fk import axis_angle_from_rotations
+
+    rng = np.random.default_rng(14)
+    vectors = rng.normal(size=(7, 22, 3)) * 0.3
+    assert axis_angle_from_rotations(rodrigues(vectors)).shape == (7, 22, 3)

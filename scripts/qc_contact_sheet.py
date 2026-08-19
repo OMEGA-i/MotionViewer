@@ -136,7 +136,10 @@ def main() -> None:
     manifest_path = args.input / "manifest.json"
     order: dict[str, int] = {}
     if manifest_path.is_file():
-        entries = json.loads(manifest_path.read_text(encoding="utf-8")).get("clips", [])
+        # generate_showcase.py writes "clips", visualize_dataset.py writes "videos";
+        # either is fine here, the manifest only supplies the sheet ordering.
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        entries = payload.get("clips") or payload.get("videos") or []
         order = {Path(entry["video"]).stem: index for index, entry in enumerate(entries)}
     videos.sort(key=lambda path: order.get(path.stem, 10**6))
 

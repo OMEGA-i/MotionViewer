@@ -81,8 +81,16 @@ def score_clip(payload: dict, fps: float = 30.0) -> dict:
             if value > jitter:
                 jitter, jitter_joint = value, name
 
-    # Foot skating: horizontal travel of whichever foot is planted, measured only
-    # while it is the lower of the two and near the floor.
+    # Foot skating: horizontal speed of whichever foot is planted, measured only
+    # while it is near the floor.
+    #
+    # The statistic is the 90th percentile over contact frames, not the maximum.
+    # Contact is decided by height alone, so the frame where a foot lifts off or
+    # touches down sits right at the threshold while already moving fast, and a
+    # max picks exactly that frame: a clean "walking forward at a steady pace"
+    # clip measured 5.42 m/s at its worst contact frame against a 0.31 m/s median
+    # over the other 28.  A percentile drops those boundary frames and leaves the
+    # sustained sliding that actually reads on screen.
     floor = float(joints[:, :, 2].min())
     skate = 0.0
     for ankle, toe in zip(_ANKLES, _FEET, strict=True):
@@ -92,10 +100,17 @@ def score_clip(payload: dict, fps: float = 30.0) -> dict:
         travel = np.linalg.norm(np.diff(points[:, :2], axis=0), axis=1)
         mask = planted[:-1] & planted[1:]
         if mask.any():
-            skate = max(skate, float(travel[mask].max()) * fps)
+            skate = max(skate, float(np.percentile(travel[mask], 90)) * fps)
         _ = ankle
 
-    penetration = max(0.0, floor - float(joints[0, :, 2].min()))
+    # How far the clip dips below where it started standing. The retarget rebases
+    # the root path on frame 0 and then applies vertical delta faithfully, so this
+    # is exactly the depth the character will sink into the floor.  Measured
+    # against frame 0 rather than an absolute Z=0, because a clip whose feet sit a
+    # constant centimetre low is absorbed by the static ground offset and shows
+    # nothing.  (Subtracting in the other order can only ever yield zero, since
+    # ``floor`` is the minimum over every frame including the first.)
+    penetration = max(0.0, float(joints[0, :, 2].min()) - floor)
     height_span = float(joints[:, :, 2].max() - floor)
 
     # Expressiveness. Penalty alone ranks a clip of someone standing still first,
@@ -111,12 +126,16 @@ def score_clip(payload: dict, fps: float = 30.0) -> dict:
 
     # Weights chosen so that each term is ~1.0 at the point it becomes visible:
     # 600 deg/s is a fast but legible turn, 0.5 deg of jitter shows on a head,
-    # 0.35 m/s of skate reads as sliding.
+    # 0.35 m/s of skate reads as sliding, and a 10 cm dip puts a foot visibly
+    # through the floor.  Sinking has a 3 cm deadband because the measured median
+    # across the T2M sets is 1.4 cm, which nothing in a render shows; without the
+    # deadband that alone would exceed the default shortlist bar and reject
+    # essentially every clip.
     penalty = (
         max(0.0, worst_velocity - 600.0) / 600.0
         + jitter / 0.5
         + max(0.0, skate - 0.35) / 0.35
-        + penetration / 0.05
+        + max(0.0, penetration - 0.03) / 0.07
     )
     return {
         "frames": total,

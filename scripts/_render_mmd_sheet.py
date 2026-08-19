@@ -150,7 +150,8 @@ def main() -> None:
     else:
         add_lighting(mins.tolist(), maxs.tolist())
     if args.outline:
-        print(f"outline shells: {len(add_outline(actor.mesh_objects, style=style))}")
+        shells = add_outline(actor.mesh_objects, style=style)
+        print(f"outline shells: {len(shells)}")
     if args.ground:
         add_ground(mins.tolist(), maxs.tolist())
     if args.zoom != "full":

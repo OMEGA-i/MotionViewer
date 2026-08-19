@@ -49,7 +49,21 @@ class ToonStyle:
     rim_strength: float = 0.18
     rim_width: float = 2.6
     outline_thickness_m: float = 0.0045
+    # Fallback only. Each material's own ``edge_color`` is used where the PMX gives
+    # one, which is what keeps the hair's edge a soft brown instead of hard black.
     outline_color: tuple[float, float, float] = (0.06, 0.045, 0.055)
+    # Vertex rings around an open boundary that get zero shell thickness. Zero by
+    # default: it sounds like the right cure for the shell showing through the eye and
+    # mouth openings, but an MMD body is assembled from unwelded pieces — one surface
+    # per material, hair built from separate cards — so 77% of Yoimiya's vertices sit
+    # on an open boundary and 96% are within two rings. Tapering there does not trim
+    # the artefact, it deletes the outline.
+    outline_boundary_rings: int = 0
+    # Multiplier on the authored edge colours. 1.0 is faithful — MMD draws the edge as
+    # a flat unlit colour, which is what this does — but the values a PMX carries are
+    # chosen against MMD's own grading, so lower it if the warm skin edge reads too
+    # light against a pale background.
+    outline_tint: float = 1.0
     # A face gets its own, much flatter terminator. Genshin drives face shadow
     # from an authored SDF map that a PMX rip does not carry, and a plain N·L
     # terminator cuts a hard line across the nose and eyes, which reads as a
@@ -91,6 +105,12 @@ def _sample_ramp_bottom(image: Any) -> tuple[float, float, float]:
         sum(row[1::4]) / count,
         sum(row[2::4]) / count,
     )
+
+
+def _srgb_to_linear(channel: float) -> float:
+    """sRGB to linear, for colours read out of a PMX and fed to a shader node."""
+    value = max(0.0, min(1.0, float(channel)))
+    return value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
 
 
 def face_base_images(materials: list[tuple[str, bool]]) -> set[str]:
@@ -273,43 +293,165 @@ def apply_toon_shading(meshes: list[Any], *, style: ToonStyle | None = None) -> 
     return report
 
 
-def add_outline(meshes: list[Any], *, style: ToonStyle | None = None) -> list[Any]:
+def add_outline(
+    meshes: list[Any],
+    *,
+    style: ToonStyle | None = None,
+    respect_edge_flags: bool = True,
+    exclude_materials: tuple[str, ...] | list[str] = (),
+) -> list[Any]:
     """Inverted-hull outline: a slightly inflated, back-facing black shell.
 
     The shell is a copy of the character, so it keeps the armature modifier and
     deforms with the animation instead of drifting off the pose.
+
+    **A PMX says per material whether it wants an edge, and that has to be obeyed.**
+    On Yoimiya, 13 of 29 materials set ``enabled_toon_edge`` to false — the eyes,
+    eye whites, eyelashes, brows, double eyelid, mouth, teeth, skirt. Outlining them
+    anyway is visible and wrong: the shell shows through at the corners of the mouth
+    as two near-black marks that read as fangs on a closed mouth, which is exactly
+    the artefact the game does not have because the game respects the flag. Measured
+    on a front-facing frame, dropping those faces takes the darkest pixel in the
+    mouth region from 63/255 to 87/255 and halves the count of dark pixels.
+
+    **The line is the colour the model asks for, not black.** A PMX carries an
+    ``edge_color`` per material and they are not all the same: on Yoimiya the hair and
+    nails ask for a warm brown ``(0.64, 0.37, 0.15)``, skin and face for
+    ``(0.50, 0.25, 0.00)``, the head ornament for a reddish ``(0.50, 0.25, 0.25)``,
+    and only the clothes for pure black. Painting one near-black line over all of them
+    turns the hair's soft brown edge into a hard black one, which is the single
+    biggest tell against the game's own look.
+
+    **Thickness tapers to zero at open boundaries.** An inverted hull shows at every
+    *opening* in a mesh, not only at the silhouette: the face mesh is open at the eyes
+    and the mouth, and the inflated shell folds there and exposes its back faces —
+    two dark marks at the corners of a closed mouth that read as fangs. Zeroing the
+    shell weight on boundary vertices removes it exactly where it happens, which is
+    what ``exclude_materials`` was doing far too bluntly: the obvious set to exclude,
+    ``apply_toon_shading(...)["face"]``, also contains the *hair* on these rigs,
+    because hair and face share one texture sheet, so it deleted the hair outline too.
+
+    Faces are removed from the *shell*, not from the character, so the model's own
+    shading is untouched. Set ``respect_edge_flags=False`` for the old behaviour.
     """
+    import bmesh  # type: ignore
     import bpy  # type: ignore
 
     settings = style or ToonStyle()
-    material = bpy.data.materials.new("MotionViewer_Outline")
-    material.use_nodes = True
-    tree = material.node_tree
-    tree.nodes.clear()
-    emission = tree.nodes.new("ShaderNodeEmission")
-    emission.inputs["Color"].default_value = (*settings.outline_color, 1.0)
-    emission.inputs["Strength"].default_value = 1.0
-    output = tree.nodes.new("ShaderNodeOutputMaterial")
-    tree.links.new(emission.outputs["Emission"], output.inputs["Surface"])
-    material.use_backface_culling = True
+
+    palette: dict[tuple[float, float, float], Any] = {}
+
+    def outline_material(colour: tuple[float, float, float]) -> Any:
+        existing = palette.get(colour)
+        if existing is not None:
+            return existing
+        material = bpy.data.materials.new("MotionViewer_Outline")
+        material.use_nodes = True
+        tree = material.node_tree
+        tree.nodes.clear()
+        emission = tree.nodes.new("ShaderNodeEmission")
+        emission.inputs["Color"].default_value = (*colour, 1.0)
+        emission.inputs["Strength"].default_value = 1.0
+        output = tree.nodes.new("ShaderNodeOutputMaterial")
+        tree.links.new(emission.outputs["Emission"], output.inputs["Surface"])
+        material.use_backface_culling = True
+        palette[colour] = material
+        return material
+
+    def authored_colour(slot_material: Any) -> tuple[float, float, float]:
+        mmd = getattr(slot_material, "mmd_material", None)
+        raw = getattr(mmd, "edge_color", None) if mmd is not None else None
+        if raw is None or len(tuple(raw)) < 3:
+            return settings.outline_color
+        colour = tuple(float(channel) for channel in tuple(raw)[:3])
+        if max(colour) <= 1e-6:
+            # Pure black is what the clothes ask for; keep the style's near-black so
+            # the line still reads as ink rather than as a hole in the image.
+            return settings.outline_color
+        # PMX stores the edge colour as sRGB; a node's default_value is linear. Fed in
+        # raw, the skin's (0.50, 0.25, 0.00) emits as a bright gold line down the jaw
+        # instead of the dark brown it is meant to be — sRGB 0.50 is linear 0.22.
+        tint = max(0.0, settings.outline_tint)
+        return tuple(_srgb_to_linear(channel) * tint for channel in colour)  # type: ignore[return-value]
 
     created: list[Any] = []
+    dropped = 0
+    tapered = 0
     for mesh in meshes:
         shell = mesh.copy()
         shell.data = mesh.data.copy()
         shell.name = f"{mesh.name}{_OUTLINE_SUFFIX}"
         for collection in mesh.users_collection:
             collection.objects.link(shell)
-        shell.data.materials.clear()
-        shell.data.materials.append(material)
+
+        if respect_edge_flags or exclude_materials:
+            # Read the flags off the original slots, and delete the faces before the
+            # material list is replaced: clearing it first would collapse every
+            # material_index and lose the mapping.
+            skip_names = set(exclude_materials)
+            excluded = set()
+            for index, slot_material in enumerate(shell.data.materials):
+                if slot_material is None:
+                    continue
+                flagged_off = respect_edge_flags and not bool(
+                    getattr(getattr(slot_material, "mmd_material", None), "enabled_toon_edge", True)
+                )
+                if flagged_off or slot_material.name in skip_names:
+                    excluded.add(index)
+            if excluded:
+                bm = bmesh.new()
+                bm.from_mesh(shell.data)
+                faces = [face for face in bm.faces if face.material_index in excluded]
+                dropped += len(faces)
+                if faces:
+                    bmesh.ops.delete(bm, geom=faces, context="FACES")
+                bm.to_mesh(shell.data)
+                bm.free()
+
+        # One outline material per authored edge colour, swapped in slot for slot so
+        # the existing material_index mapping keeps every face on the right colour.
+        for index, slot_material in enumerate(shell.data.materials):
+            if slot_material is not None:
+                shell.data.materials[index] = outline_material(authored_colour(slot_material))
+
         solidify = shell.modifiers.new("Outline", "SOLIDIFY")
         solidify.thickness = settings.outline_thickness_m
         solidify.offset = 1.0
         solidify.use_flip_normals = True
         solidify.use_rim = False
+
+        if settings.outline_boundary_rings > 0:
+            # Optional and off by default; see the field's comment for why it is a trap
+            # on this kind of mesh.
+            group = shell.vertex_groups.new(name="MotionViewer_OutlineWeight")
+            bm = bmesh.new()
+            bm.from_mesh(shell.data)
+            bm.verts.ensure_lookup_table()
+            ring = {vertex.index for edge in bm.edges if edge.is_boundary for vertex in edge.verts}
+            for _ in range(settings.outline_boundary_rings - 1):
+                ring |= {
+                    other.index
+                    for index in list(ring)
+                    for edge in bm.verts[index].link_edges
+                    for other in edge.verts
+                }
+            bm.free()
+            tapered += len(ring)
+            interior = [v.index for v in shell.data.vertices if v.index not in ring]
+            if interior:
+                group.add(interior, 1.0, "REPLACE")
+            if ring:
+                group.add(sorted(ring), 0.0, "REPLACE")
+            solidify.vertex_group = group.name
+            # Zero weight means zero thickness, rather than the default full thickness.
+            solidify.thickness_vertex_group = 0.0
         # Front faces are culled by the material, so only the inflated back
         # faces survive and they read as a line around the silhouette.
         created.append(shell)
+    if dropped:
+        print(f"outline: dropped {dropped} shell faces whose material asks for no edge")
+    note = f", tapered at {tapered} boundary vertices" if tapered else ""
+    print(f"outline: {len(palette)} authored edge colour(s){note}")
     return created
 
 
@@ -377,11 +519,32 @@ def add_ground(
     *,
     color: tuple[float, float, float] = (0.90, 0.89, 0.88),
     size_factor: float = 6.0,
+    grid_metres: float = 0.0,
+    grid_contrast: float = 0.045,
+    plane_z: float | None = None,
 ) -> Any:
     """A floor that receives the character's shadow.
 
     Without it the character floats: a cast shadow is most of what tells a viewer
     where the feet are, and it is the cheapest cue that the motion has contact.
+
+    ``plane_z`` is the floor height; it defaults to ``bounds_min[2]``, the lowest the
+    character ever reaches. That default guarantees no foot ever intersects the
+    floor, and also guarantees the character visibly hovers in every other frame:
+    measured on a walk, the lowest mesh vertex ranges over 3.8–7.7 cm, so placing
+    the floor at the minimum leaves a 2.1 cm median gap under the feet — about ten
+    pixels at 800p, and enough with a soft shadow to read as floating. Passing a low
+    percentile of the per-frame minimum instead lets planted frames make contact and
+    trades the gap for a centimetre or two of intersection, which the contact shadow
+    hides. Only the floor prop moves; no joint angle or root position is touched.
+
+    ``grid_metres`` adds a world-fixed checker of that size. It is off by default
+    and only wanted under a *follow* camera: on a featureless floor a tracking
+    camera cancels the translation it is following, so a walk turns into a
+    treadmill and the clip reads as marching in place. The contrast is deliberately
+    tiny — a few percent of luminance — because the pattern only has to give the
+    eye something stationary to measure against, and a strong checker would fight
+    a cel-shaded character for attention.
     """
     import bpy  # type: ignore
 
@@ -398,7 +561,11 @@ def add_ground(
     )
     mesh.update()
     ground = bpy.data.objects.new("MotionViewer_Ground", mesh)
-    ground.location = (center_x, center_y, float(bounds_min[2]))
+    ground.location = (
+        center_x,
+        center_y,
+        float(bounds_min[2]) if plane_z is None else float(plane_z),
+    )
     bpy.context.scene.collection.objects.link(ground)
 
     material = bpy.data.materials.new("MotionViewer_Ground")
@@ -406,8 +573,23 @@ def add_ground(
     tree = material.node_tree
     tree.nodes.clear()
     diffuse = tree.nodes.new("ShaderNodeBsdfDiffuse")
-    diffuse.inputs["Color"].default_value = (*color, 1.0)
     output = tree.nodes.new("ShaderNodeOutputMaterial")
+    if grid_metres > 0.0:
+        # Generated coordinates span the mesh, so a checker keyed to them stays put
+        # in world space while the camera moves over it.
+        coords = tree.nodes.new("ShaderNodeTexCoord")
+        mapping = tree.nodes.new("ShaderNodeMapping")
+        mapping.inputs["Scale"].default_value = (half * 2.0, half * 2.0, 1.0)
+        checker = tree.nodes.new("ShaderNodeTexChecker")
+        checker.inputs["Scale"].default_value = 1.0 / max(grid_metres, 1e-3)
+        shade = max(0.0, min(1.0, 1.0 - grid_contrast))
+        checker.inputs["Color1"].default_value = (*color, 1.0)
+        checker.inputs["Color2"].default_value = (*(channel * shade for channel in color), 1.0)
+        tree.links.new(coords.outputs["Generated"], mapping.inputs["Vector"])
+        tree.links.new(mapping.outputs["Vector"], checker.inputs["Vector"])
+        tree.links.new(checker.outputs["Color"], diffuse.inputs["Color"])
+    else:
+        diffuse.inputs["Color"].default_value = (*color, 1.0)
     tree.links.new(diffuse.outputs["BSDF"], output.inputs["Surface"])
     mesh.materials.append(material)
     ground.is_shadow_catcher = True if hasattr(ground, "is_shadow_catcher") else False

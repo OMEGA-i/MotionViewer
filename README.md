@@ -102,6 +102,7 @@ Project instructions are hierarchical: start with [AGENTS.md](AGENTS.md), then f
 - [Sample Packing Protocol](docs/package_protocol.md)
 - [Package workflows](docs/archives.md)
 - [FBX retargeting](docs/retarget.md)
+- [Visualising a T2M dataset](docs/dataset-visualisation.md)
 - [Visual style](docs/visual-style.md)
 
 ## License

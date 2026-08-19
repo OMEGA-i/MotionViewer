@@ -121,32 +121,42 @@ def main() -> None:
         info = apply_secondary_motion(bpy, actor.armature, frame_start=frame_start, num_frames=total)
         print(f"spring: {json.dumps(info, ensure_ascii=False)}")
 
-    def mesh_bounds(frames: list[int]) -> tuple[np.ndarray, np.ndarray]:
+    def mesh_bounds(frames: list[int]) -> tuple[np.ndarray, np.ndarray, list[float]]:
+        """Union of the mesh bounds, plus the lowest vertex height of each frame."""
+        from mathutils import Vector  # type: ignore
+
         mins = np.full(3, 1e9)
         maxs = np.full(3, -1e9)
+        lowest: list[float] = []
         for frame in frames:
             scene.frame_set(frame)
             bpy.context.view_layer.update()
             depsgraph = bpy.context.evaluated_depsgraph_get()
+            frame_low = 1e9
             for mesh in actor.mesh_objects:
                 evaluated = mesh.evaluated_get(depsgraph)
                 matrix = evaluated.matrix_world
                 for corner in evaluated.bound_box:
-                    from mathutils import Vector  # type: ignore
-
                     world = matrix @ Vector(corner)
                     mins = np.minimum(mins, (world.x, world.y, world.z))
                     maxs = np.maximum(maxs, (world.x, world.y, world.z))
-        return mins, maxs
+                    frame_low = min(frame_low, float(world.z))
+            lowest.append(frame_low)
+        return mins, maxs, lowest
 
-    mins, maxs = mesh_bounds(picks)
+    mins, maxs, sole_heights = mesh_bounds(picks)
 
     report = apply_toon_shading(actor.mesh_objects)
     print(f"toon: {len(report['shaded'])} shaded, {len(report['unlit'])} unlit, {len(report['face'])} face")
     add_toon_lighting(mins.tolist(), maxs.tolist())
     add_outline(actor.mesh_objects)
     if args.ground:
-        add_ground(mins.tolist(), maxs.tolist())
+        # Lower quartile, not the minimum: the retarget grounds the *rest* pose, so a
+        # posed character sits several centimetres high and a floor at the minimum
+        # leaves every other frame visibly hovering. See add_ground's docstring.
+        floor_z = float(np.percentile(sole_heights, 25))
+        print(f"floor: {floor_z:.4f} m (frame soles {min(sole_heights):.4f}..{max(sole_heights):.4f})")
+        add_ground(mins.tolist(), maxs.tolist(), plane_z=floor_z)
 
     width = max(int(round(args.resolution * args.aspect)), 16)
     add_camera_for_bounds(

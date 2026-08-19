@@ -11,7 +11,20 @@ def add_camera_for_bounds(
     resolution: tuple[int, int] = (1920, 1080),
     name: str | None = None,
     set_active: bool = True,
+    elevation: float | None = None,
+    direction: tuple[float, float, float] | None = None,
 ):
+    """Place a camera framing ``bounds_min``..``bounds_max``.
+
+    ``direction`` replaces the preset's view vector outright — the camera sits at
+    ``centre + direction * distance`` and looks back at the centre, so this is the
+    side the subject is seen from. Use it to face a character whose own heading is
+    known, which a fixed world-space preset cannot do.
+
+    ``elevation`` overrides the vertical component, as a ratio of the horizontal
+    reach: 0.34 (the ``three_quarter`` default) looks down at about 19 degrees, which
+    shows the floor but hides a face. Lower it when the face matters.
+    """
     import bpy  # type: ignore
     from mathutils import Vector  # type: ignore
 
@@ -21,7 +34,11 @@ def add_camera_for_bounds(
     span = maxs - mins
     distance_factor = 0.83 if preset == "perspective_front" else 2.2
     distance = max(float(max(span.x, span.y, span.z)) * distance_factor * margin, 3.0)
-    direction = _preset_direction(preset)
+    direction = Vector(direction).normalized() if direction is not None else _preset_direction(preset)
+    if elevation is not None:
+        horizontal = Vector((direction.x, direction.y, 0.0))
+        if horizontal.length > 1e-9:
+            direction = Vector((direction.x, direction.y, horizontal.length * float(elevation))).normalized()
     location = center + direction * distance
     bpy.ops.object.camera_add(location=location)
     camera = bpy.context.object

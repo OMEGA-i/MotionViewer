@@ -1,19 +1,27 @@
 """Is the hand inside the clothing when the character just stands there?
 
 The acceptance test for a downloaded character is whether a plain standing pose already
-buries the hands in a skirt or a coat. Eyeballing a contact sheet does not settle it —
+buries its hands in a skirt or a coat. Eyeballing a contact sheet does not settle it —
 a hand drawn *over* a coat and a hand *inside* it look nearly the same at thumbnail
-size, and the difference is what decides whether the character is usable.
+size, and the difference decides whether the character is usable at all.
 
-So it is measured. Hand vertices are found by vertex weight to the wrist and finger
-bones, and each one is tested for being inside any other mesh by casting a ray and
-reading the normal of the first face it hits: a normal pointing the same way as the ray
-means the ray left through a backface, so the point started inside. Three directions
-are cast and the majority wins, which tolerates the open boundaries these garment
-meshes are full of — a single ray through a hole reports "outside" for a point that is
-plainly buried.
+So it is measured, in two poses. Finger vertices are separated from the rest of the mesh
+by vertex weight, a BVH is built from every face that has no finger vertex, and each
+finger vertex is tested for being inside it by casting rays and reading the normal of
+the first face hit: a normal pointing along the ray means the ray left through a
+backface, so the point started inside. Three directions vote, which tolerates the open
+boundaries these garment meshes are full of.
+
+The number that matters is the **rise** from the bind pose to the standing pose, not the
+standing figure itself. A glove or a cuff encloses the fingers by design and does so in
+both poses, so it cancels; a skirt only closes over the hand once the arm comes down.
+Reported absolutely instead, Yoimiya — the reference character rendered throughout this
+project without a hand ever clipping — scores 30% and looks like the worst model in the
+set.
 
   blender --background --python scripts/_check_hand_clipping.py
+
+Writes ``outputs/hand_clipping.json``.
 """
 
 from __future__ import annotations
@@ -47,7 +55,11 @@ DIRECTIONS = (Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0.577, 0.577, 0.577)
 #: enclosed. Yoimiya scored 30.2% that way — a character whose hands have never clipped
 #: in any render made here. Gloves and cuffs enclose the fingers in the bind pose too,
 #: so they cancel; a skirt only closes over the hand once the arm comes down.
-BURIED_RISE_LIMIT = 0.15
+#: Placed in the gap the measurements actually show. Across nineteen characters the
+#: rises land at +14.1% (Yoimiya, the reference this project has rendered all along
+#: without a hand ever clipping) and then jump to +23.0%, with nothing between. 0.18
+#: sits in that gap; 0.15 would pass Yoimiya by 0.9 points, which is not a margin.
+BURIED_RISE_LIMIT = 0.18
 
 
 def hand_and_cloth(obj, depsgraph):

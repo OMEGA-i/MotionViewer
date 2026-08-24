@@ -56,6 +56,8 @@ if str(ROOT / "scripts") not in sys.path:
 
 from score_motion_quality import score_clip  # noqa: E402
 
+from motionviewer.core.head_clearance import clear_head  # noqa: E402
+
 CHARACTERS: dict[str, str] = {
     "yoimiya": "assets/fbx/pmx/yoimiya/宵宫.pmx",
     "furina": "assets/fbx/pmx/furina/【芙宁娜】.pmx",
@@ -223,16 +225,29 @@ def smooth_pose(payload: dict, window: int, joints: tuple[str, ...] = _SMOOTH_JO
     payload["transl"] = _moving_average(payload["transl"], window)
 
 
-def preprocess(payload: dict, trim: int, window: int) -> None:
-    """Head trim then temporal smoothing, in place and in that order.
+def preprocess(payload: dict, trim: int, window: int, *, head_clear: bool = False) -> str:
+    """Head trim, then head clearance, then temporal smoothing, in that order.
 
-    Order matters: the frame-0 anchor pop would otherwise be smeared across the
-    filter window instead of removed, turning one bad frame into several.
+    Order matters: the frame-0 anchor pop has to go first or it would be smeared across
+    the filter window instead of removed, turning one bad frame into several. Clearance
+    runs before smoothing so the filter sees the corrected arm.
+
+    Returns a one-line note about what was changed, or an empty string.
     """
     if trim > 0:
         for key in REQUIRED:
             payload[key] = payload[key][trim:]
+    notes = []
+    if head_clear:
+        pose, joints, report = clear_head(
+            payload["global_orient"], payload["body_pose"], payload["transl"], payload["joints22"]
+        )
+        if report.frames_corrected:
+            payload["body_pose"] = pose
+            payload["joints22"] = joints
+            notes.append(report.summary())
     smooth_pose(payload, window)
+    return "; ".join(notes)
 
 
 def caption_slug(caption: str, *, limit: int = 56) -> str:
@@ -373,21 +388,23 @@ def discover(data_root: Path, patterns: list[str], trim_mode: str, smooth: int =
     return tasks
 
 
-def materialize(clip: Clip, cache: Path, smooth: int) -> str:
+def materialize(clip: Clip, cache: Path, smooth: int, *, head_clear: bool = False) -> str:
     """Write the preprocessed clip for Blender to read. Error string, empty on success.
 
-    The cache name carries the settings, so changing the smoothing window does not
-    silently reuse a file produced under the old one.
+    The cache name carries the settings, so changing the smoothing window or turning
+    the foot lock on does not silently reuse a file produced under the old ones.
     """
-    if clip.trim <= 0 and smooth < 2:
+    if clip.trim <= 0 and smooth < 2 and not head_clear:
         return ""
-    stem = f"{clip.task.replace('/', '-')}_{clip.clip_id}_t{clip.trim}_s{max(smooth, 0)}"
+    stem = f"{clip.task.replace('/', '-')}_{clip.clip_id}_t{clip.trim}_s{max(smooth, 0)}_h{int(head_clear)}"
     destination = cache / f"{stem}.npz"
     if not destination.is_file():
         payload, error = validate(clip.path)
         if payload is None:
             return f"could not reload clip: {error}"
-        preprocess(payload, clip.trim, smooth)
+        note = preprocess(payload, clip.trim, smooth, head_clear=head_clear)
+        if note:
+            print(f"  {clip.clip_id}: {note}", flush=True)
         arrays = {key: np.asarray(payload[key], dtype=np.float32) for key in REQUIRED}
         # body_pose is stored flat upstream; keep that shape so the file is a
         # drop-in replacement for the original.
@@ -802,6 +819,17 @@ def main() -> None:
             "motion, and that is the user's call on a figure meant as evidence"
         ),
     )
+    parser.add_argument(
+        "--head-clear",
+        action="store_true",
+        help=(
+            "Rotate the shoulder just enough to keep the hand out of the head. The "
+            "source is fitted to a bare scalp while these characters have hair and a "
+            "hat, so a gesture recorded near the head renders inside it: on 6 of 400 "
+            "clips the wrist enters the head sphere, worst 2.4 cm from the head joint "
+            "against a 12.9 cm radius. Only the arm below the shoulder moves"
+        ),
+    )
     parser.add_argument("--min-frames", type=int, default=20)
     parser.add_argument("--max-penalty", type=float, default=0.0, help="0 disables the quality gate")
     parser.add_argument("--output", type=Path, default=ROOT / "converted/dataset_videos")
@@ -1042,7 +1070,19 @@ def main() -> None:
             panels: list[tuple[Path, str]] = []
             targets = [(other, args.compare), (clip, clip.task)] if other else [(clip, clip.task)]
             failed = next(
-                (error for error in (materialize(t, trim_cache, args.smooth) for t, _ in targets) if error),
+                (
+                    error
+                    for error in (
+                        materialize(
+                            t,
+                            trim_cache,
+                            args.smooth,
+                            head_clear=args.head_clear,
+                        )
+                        for t, _ in targets
+                    )
+                    if error
+                ),
                 "",
             )
             # Both sides of a pair are framed from the union of the two, so a

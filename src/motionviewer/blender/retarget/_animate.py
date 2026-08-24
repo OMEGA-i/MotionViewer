@@ -170,6 +170,9 @@ def animate_mmd_frames(
         motion.names,
         motion.rest_frames,
         options,
+        # A source that does not use SMPL-X joint names supplies the translation, or
+        # every polish step would quietly match nothing.
+        getattr(motion, "polish_aliases", None),
     )
     roots = _mmd_root_locations(motion, boot, plan.root_translation_scale, vertical_offset_z)
     result = solve_mmd_retarget(plan, frames, roots)

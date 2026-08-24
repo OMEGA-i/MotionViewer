@@ -34,15 +34,56 @@ def _root_translation_scale(
     source_rest: dict[str, np.ndarray],
     head_bone: str,
 ) -> float:
-    """Ratio of skeleton heights.
+    """Ratio of **leg** lengths, falling back to heights when the legs cannot be found.
 
-    Local rotations transfer unchanged between rigs, but root translation is
-    proportional to how tall the character is, so a 1.6 m SMPL-X walk cannot
-    move a stylised rig by the same metres.
+    Root translation has to be rescaled between rigs, and the quantity it scales with
+    is leg length, not height: a step carries the root forward by however far the leg
+    can reach, and the torso above the hip contributes nothing to it.
+
+    This used to return the height ratio, which is only right when the two rigs share
+    the same leg-to-height proportion. The Mixamo characters do — 0.529 against SMPL-X's
+    0.528 — and that coincidence is why the old rule never looked wrong there. Stylised
+    MMD characters do not: Yoimiya measures 0.7902 m of leg on 1.7208 m of height, a
+    ratio of 0.4592 against the source skeleton's 0.5322. The height rule therefore
+    asked for 1.1292 where the legs justify 0.9744, a 15.9% overshoot, and every metre
+    the character travelled slid its planted foot 15.9 cm. Across this dataset that is
+    8.7 cm at the median displacement, 45 cm at the p90 and 2.7 m on the longest clip.
+
+    Nothing about the motion is edited here: the same source drives the same bones, and
+    only the metres the root is asked to cover change.
     """
     world = armature.matrix_world
     world_scale = float(sum(abs(value) for value in world.to_scale())) / 3.0
 
+    def chain_length(names: tuple[str, ...]) -> float:
+        """Summed segment length along a hip -> knee -> ankle chain, either rig."""
+        points = []
+        for role in names:
+            target = next((t for t, s in target_to_source.items() if s == role), None)
+            if target is None or target not in bones:
+                return 0.0
+            points.append(np.asarray((world @ bones[target].matrix_local).translation, dtype=np.float64))
+        return float(sum(np.linalg.norm(points[i + 1] - points[i]) for i in range(len(points) - 1)))
+
+    def source_chain_length(names: tuple[str, ...]) -> float:
+        points = []
+        for role in names:
+            frame = source_rest.get(role)
+            if frame is None:
+                return 0.0
+            points.append(np.asarray(frame, dtype=np.float64)[:3, 3])
+        return float(sum(np.linalg.norm(points[i + 1] - points[i]) for i in range(len(points) - 1)))
+
+    # Canonical roles, not SMPL-X joint names: this table is keyed the way the rest of
+    # the MMD mapping is. ``thigh`` is the knee joint here, matching ``左ひざ``.
+    for chain in (("hip.L", "thigh.L", "foot.L"), ("hip.R", "thigh.R", "foot.R")):
+        target_leg = chain_length(chain)
+        source_leg = source_chain_length(chain)
+        if target_leg > 1e-6 and source_leg > 1e-6:
+            return target_leg / source_leg
+
+    # No leg chain resolved — fall back to the old height ratio rather than 1.0, which
+    # would leave a stylised rig travelling in source metres.
     target_z = [float((world @ bones[name].matrix_local).translation.z) for name in target_to_source]
     source_z = [
         float(np.asarray(source_rest[source], dtype=np.float64)[2, 3]) for source in target_to_source.values()

@@ -34,6 +34,10 @@ dev = [
     "pytest>=8.0",
     "ruff>=0.12",
 ]
+# Only for scripts/pick_clips.py, the interactive clip picker. Not needed to render.
+viz = [
+    "viser>=0.2",
+]
 
 [project.scripts]
 motionviewer = "motionviewer.cli:app"

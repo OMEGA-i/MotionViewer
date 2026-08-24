@@ -325,6 +325,7 @@ def polish_source_frames(
     names: tuple[str, ...],
     rest_frames: np.ndarray,
     options: MmdPolishOptions,
+    aliases: dict[str, str] | None = None,
 ) -> np.ndarray:
     """Apply every look-focused departure from the source, in one place.
 
@@ -332,11 +333,33 @@ def polish_source_frames(
     appearance.  Keeping it in one function means the validator can reproduce
     precisely what the pipeline fed its solver, instead of measuring the polish
     and calling it transfer error.
+
+    Joints are addressed by their SMPL-X names because that is the source this was
+    written for.  ``aliases`` maps those names onto whatever the current source calls
+    them, which a differently-named skeleton needs in order to get polished at all:
+    without it every step here silently finds nothing and does nothing, and the arms
+    in particular are left un-abducted and clip into the body.
     """
     frames = np.asarray(source_frames, dtype=np.float64)
     if not getattr(options, "enabled", False):
         return frames
+    translate = dict(aliases or {})
     index_of = {name: index for index, name in enumerate(names)}
+    index_of = {
+        key: index_of[translate.get(key, key)]
+        for key in (
+            "left_collar",
+            "right_collar",
+            "spine3",
+            "left_shoulder",
+            "left_elbow",
+            "left_wrist",
+            "right_shoulder",
+            "right_elbow",
+            "right_wrist",
+        )
+        if translate.get(key, key) in index_of
+    }
 
     if options.collar_damping < 1.0:
         for collar in ("left_collar", "right_collar"):

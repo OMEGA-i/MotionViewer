@@ -139,6 +139,35 @@ pkill -f visualize_dataset.py
 
 ---
 
+## 6a. 用 viser 交互挑片段
+
+```bash
+uv run --group viz python scripts/pick_clips.py
+# 打开它打印的 http://127.0.0.1:8080
+```
+
+在 3D 里播放骨架、看 caption、按 **Keep this clip** 标记（会自动跳下一条），
+**Tags** 输入框可以给每条写几个字备注自己看到了什么。
+
+挑完清单在 `outputs/picks/<集合名>.txt`，直接喂回渲染：
+
+```bash
+uv run python scripts/visualize_dataset.py --task live500/gen \
+  --clips "$(cat outputs/picks/live500-gen.txt)" --output converted/picked
+```
+
+三个文件：
+
+| 文件 | 内容 |
+|---|---|
+| `<集合>.txt` | 逗号分隔的片段号，给 `--clips` 用 |
+| `<集合>.tags.json` | 你写的 tag（独立文件，取消 keep 不会丢） |
+| `<集合>.json` | 可读版：片段号 + tag + caption + 帧数 |
+
+想清空重挑：`rm outputs/picks/<集合名>.*`
+
+---
+
 ## 6. 挑片段
 
 ```bash

@@ -24,6 +24,8 @@ if str(SRC) not in sys.path:
 _BONE_RADIUS_M = 0.022
 # Column indices in SMPLX_BODY22_NAMES, used for the heading.
 _HIP_L, _HIP_R = 1, 2
+# Same two joints in the SOMA-77 tree, used for the heading and the framing hull.
+_SOMA_HIP_L, _SOMA_HIP_R = 67, 72
 # Target on-screen width of the inverted-hull outline, in pixels.
 _OUTLINE_PIXELS = 1.6
 _JOINT_RADIUS_M = 0.032
@@ -32,7 +34,18 @@ _JOINT_RADIUS_M = 0.032
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--asset", type=Path, required=True)
-    parser.add_argument("--motion", type=Path, required=True)
+    parser.add_argument("--motion", type=Path, default=None, help="SMPL-X body-22 clip")
+    parser.add_argument(
+        "--soma",
+        type=Path,
+        default=None,
+        help=(
+            "Drive from a SOMA-77 clip instead of a fitted SMPL-X one. Same shading, "
+            "camera and expression; the body solve is identical and the fingers become "
+            "driven. Skips the 26-28 mm RMSE of the SMPL-X fit"
+        ),
+    )
+    parser.add_argument("--no-fingers", action="store_true", help="With --soma, leave the hands at bind")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--views", default="three_quarter")
     parser.add_argument("--frames", type=int, default=0, help="0 means the whole clip")
@@ -53,6 +66,52 @@ def main() -> None:
     parser.add_argument("--toon", action="store_true", help="Cel shading, outline, floor shadow")
     parser.add_argument("--no-outline", action="store_true", help="With --toon, skip the outline shell")
     parser.add_argument("--no-ground", action="store_true", help="With --toon, skip the floor")
+    parser.add_argument(
+        "--scene",
+        default="",
+        help=(
+            "Add props and a set: table_tennis, badminton, carry_box, basketball. "
+            "A set is placed from the character's heading because the motion carries "
+            "no equipment, so check the result before trusting it."
+        ),
+    )
+    parser.add_argument(
+        "--weapon",
+        default="",
+        help=(
+            "Hold this character's own weapon model. 'auto' looks the character up in "
+            "WEAPON_BY_CHARACTER by its asset directory; a path uses that PMX. These "
+            "rips ship the weapon as a separate model, so it is a prop on the wrist."
+        ),
+    )
+    parser.add_argument(
+        "--weapon-hand",
+        default="",
+        help="Override the hand the weapon hangs from, e.g. 左手首",
+    )
+    parser.add_argument(
+        "--weapon-grip",
+        type=float,
+        default=0.0,
+        help="Slide the weapon along the grip axis, in metres, to seat it in the fist",
+    )
+    parser.add_argument(
+        "--scene-hand",
+        default="",
+        help="Override which bone the prop hangs from (default per scene, e.g. 右手首)",
+    )
+    parser.add_argument(
+        "--scene-reach",
+        type=float,
+        default=3.0,
+        help="Metres of set around the player that framing must cover",
+    )
+    parser.add_argument(
+        "--scene-standoff",
+        type=float,
+        default=None,
+        help="Metres from the player to the table's near edge / the net",
+    )
     parser.add_argument(
         "--spring",
         action="store_true",
@@ -146,6 +205,8 @@ def main() -> None:
         ),
     )
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
+    if (args.motion is None) == (args.soma is None):
+        parser.error("give exactly one of --motion (SMPL-X) or --soma (SOMA-77)")
 
     import bpy  # type: ignore
     import numpy as np
@@ -180,23 +241,46 @@ def main() -> None:
     clear_scene()
     setup_world(transparent=False)
 
-    actor = create_fbx_actor_from_npz(
-        args.motion,
-        label="yoimiya",
-        fbx_path=args.asset,
-        bone_map="mmd",
-        gender="female",
-        fbx_scale=0.08,
-        retarget_mode="direct",
-        mmd_polish={"enabled": not args.faithful},
-        mmd_physics=args.spring,
-        mmd_morphs=args.expression != "none",
-    )
+    if args.soma is not None:
+        from motionviewer.blender.retarget.soma_pipeline import create_soma_actor_from_npz
+
+        actor = create_soma_actor_from_npz(
+            args.soma,
+            label="yoimiya",
+            pmx_path=args.asset,
+            pmx_scale=0.08,
+            drive_fingers=not args.no_fingers,
+            polish={"enabled": not args.faithful},
+            physics=args.spring,
+            morphs=args.expression != "none",
+        )
+    else:
+        actor = create_fbx_actor_from_npz(
+            args.motion,
+            label="yoimiya",
+            fbx_path=args.asset,
+            bone_map="mmd",
+            gender="female",
+            fbx_scale=0.08,
+            retarget_mode="direct",
+            mmd_polish={"enabled": not args.faithful},
+            mmd_physics=args.spring,
+            mmd_morphs=args.expression != "none",
+        )
     scene = bpy.context.scene
     frame_start = int(scene.frame_start)
 
-    with np.load(args.motion, allow_pickle=False) as payload:
-        joints = np.asarray(payload["joints22"], dtype=np.float64)
+    # One reader for both source formats: the camera and framing only need joint
+    # positions and the two hip joints, which both layouts provide.
+    source_path = args.soma if args.soma is not None else args.motion
+    joint_key = "joints77" if args.soma is not None else "joints22"
+    hip_left, hip_right = (_SOMA_HIP_L, _SOMA_HIP_R) if args.soma is not None else (_HIP_L, _HIP_R)
+
+    def source_joints_of(path: Path) -> np.ndarray:
+        with np.load(path, allow_pickle=False) as source_payload:
+            return np.asarray(source_payload[joint_key], dtype=np.float64)
+
+    joints = source_joints_of(source_path)
     total = len(joints) if args.frames <= 0 else min(args.frames, len(joints))
     frame_end = frame_start + total - 1
 
@@ -269,9 +353,14 @@ def main() -> None:
             obj.rotation_mode = "QUATERNION"
             return obj
 
-        bones = [(child, parent) for child, parent in enumerate(SMPLX_BODY22_PARENTS) if parent >= 0]
+        if args.soma is not None:
+            with np.load(source_path, allow_pickle=False) as soma_payload:
+                source_parents = np.asarray(soma_payload["joint_parents"], dtype=int)
+        else:
+            source_parents = np.asarray(SMPLX_BODY22_PARENTS, dtype=int)
+        bones = [(child, int(parent)) for child, parent in enumerate(source_parents) if parent >= 0]
         segments = [add_primitive("cylinder", f"src_bone_{child}") for child, _ in bones]
-        joint_balls = [add_primitive("sphere", f"src_joint_{index}") for index in range(22)]
+        joint_balls = [add_primitive("sphere", f"src_joint_{index}") for index in range(len(source_parents))]
         skeleton_objects = [*segments, *joint_balls]
 
         for offset in range(total):
@@ -358,9 +447,8 @@ def main() -> None:
     hull_mins = np.full(3, 1e9)
     hull_maxs = np.full(3, -1e9)
     travel_paths: list[np.ndarray] = []
-    for source in [args.motion, *(args.frame_motion or [])]:
-        with np.load(source, allow_pickle=False) as source_payload:
-            source_joints = np.asarray(source_payload["joints22"], dtype=np.float64)
+    for source in [source_path, *(args.frame_motion or [])]:
+        source_joints = source_joints_of(source)
         limit = len(source_joints) if args.frames <= 0 else min(args.frames, len(source_joints))
         points = aligned_source_points(source_joints[:limit])
         pelvis = points[:, 0, :].copy()
@@ -384,12 +472,11 @@ def main() -> None:
     # travel on three walking clips (dot +1.00, +0.98) and correctly disagreeing on
     # the one captioned "jogging backward" (-0.98).
     headings = []
-    for source in [args.motion, *(args.frame_motion or [])]:
-        with np.load(source, allow_pickle=False) as source_payload:
-            source_joints = np.asarray(source_payload["joints22"], dtype=np.float64)
+    for source in [source_path, *(args.frame_motion or [])]:
+        source_joints = source_joints_of(source)
         limit = len(source_joints) if args.frames <= 0 else min(args.frames, len(source_joints))
         points = source_to_blender(source_joints[:limit])
-        lateral = points[:, _HIP_R] - points[:, _HIP_L]
+        lateral = points[:, hip_right] - points[:, hip_left]
         lateral[:, 2] = 0.0
         lateral /= np.maximum(np.linalg.norm(lateral, axis=1, keepdims=True), 1e-9)
         forward = np.cross(np.array([0.0, 0.0, 1.0]), lateral)
@@ -399,9 +486,26 @@ def main() -> None:
     norm = float(np.linalg.norm(heading))
     heading = heading / norm if norm > 1e-6 else np.array([0.0, -1.0, 0.0])
 
+    # Where a set should be centred: the mean standing spot, not frame 0. Frame 0 is
+    # the conditioning pose and can sit a step away from where the action happens, and
+    # a table placed off that lands visibly to one side of the player.
+    primary_points = aligned_source_points(
+        source_joints_of(source_path)[: (None if args.frames <= 0 else args.frames)]
+    )
+    stand_origin = primary_points[:, 0, :2].mean(axis=0)
+
     stacked = np.concatenate(travel_paths, axis=0)
     travel = float(np.linalg.norm(stacked.max(axis=0) - stacked.min(axis=0)))
     follow = args.camera == "follow" or (args.camera == "auto" and travel > args.follow_threshold)
+    # A set is world-fixed, so a tracking camera slides it across the frame — the one
+    # artefact that gives away a composited prop immediately. An explicit --camera
+    # still wins, so this can be overridden when the drift is wanted.
+    if args.scene and args.camera == "auto":
+        from motionviewer.blender.mmd_props import SCENE_DEFAULTS
+
+        if SCENE_DEFAULTS.get(args.scene, {}).get("static_camera") and follow:
+            print(f"camera: forcing static for --scene {args.scene} (a fixed set would drift)")
+            follow = False
     print(f"camera: {'follow' if follow else 'static'} (travel {travel:.2f} m)")
     print(
         f"follow box from joints {np.round(follow_maxs - follow_mins, 3)}"
@@ -417,9 +521,8 @@ def main() -> None:
         # Joints-only is identical on both sides by construction.
         hull_mins = np.full(3, 1e9)
         hull_maxs = np.full(3, -1e9)
-        for extra in [args.motion, *args.frame_motion]:
-            with np.load(extra, allow_pickle=False) as extra_payload:
-                extra_joints = np.asarray(extra_payload["joints22"], dtype=np.float64)
+        for extra in [source_path, *args.frame_motion]:
+            extra_joints = source_joints_of(extra)
             limit = len(extra_joints) if args.frames <= 0 else min(args.frames, len(extra_joints))
             flat = aligned_source_points(extra_joints[:limit]).reshape(-1, 3)
             hull_mins = np.minimum(hull_mins, flat.min(axis=0))
@@ -456,6 +559,131 @@ def main() -> None:
                 actor.mesh_objects,
                 style=ToonStyle(outline_thickness_m=thickness, outline_tint=args.outline_tint),
             )
+        if args.scene:
+            from motionviewer.blender.mmd_props import (
+                SCENE_BUILDERS,
+                SCENE_DEFAULTS,
+                PropStyle,
+                attach_to_bone,
+            )
+
+            if args.scene not in SCENE_BUILDERS:
+                raise SystemExit(f"unknown --scene {args.scene!r}; have {sorted(SCENE_BUILDERS)}")
+            hand = args.scene_hand or SCENE_DEFAULTS[args.scene]["hand"]
+            builder = SCENE_BUILDERS[args.scene]
+            kwargs: dict = {"hand_bone": hand}
+            if args.scene in ("table_tennis", "badminton"):
+                kwargs.update(
+                    origin=(float(stand_origin[0]), float(stand_origin[1])),
+                    heading=(float(heading[0]), float(heading[1])),
+                    floor_z=floor_z,
+                )
+                if args.scene_standoff is not None:
+                    kwargs["stand_off"] = args.scene_standoff
+            build = builder(bpy, PropStyle(), **kwargs)
+            missing = [p.bone for p in build.props if not attach_to_bone(bpy, p, actor.armature)]
+            if missing:
+                raise SystemExit(f"--scene {args.scene}: rig has no bone {missing}")
+            # Props go through the character's shader and outline so they do not read
+            # as geometry from a different renderer sitting in the same frame.
+            apply_toon_shading(build.objects)
+            if not args.no_outline:
+                add_outline(build.objects, style=ToonStyle(outline_thickness_m=thickness))
+            print(
+                f"scene {args.scene}: {len(build.props)} prop(s) on {hand}, {len(build.static)} set piece(s)"
+            )
+            # Anchor check, because a mis-parented prop renders as a shape floating in
+            # the corner of the frame and reads as a framing bug rather than a bad
+            # parent inverse. A hand prop should sit centimetres from the wrist.
+            bpy.context.view_layer.update()
+            for prop in build.props:
+                if not prop.bone:
+                    continue
+                # The *posed* head, not ``data.bones[...].head_local``: a bone parent
+                # follows the pose, so comparing against the rest position reports a
+                # gap the size of the pose itself and looks like a parenting bug.
+                posed = actor.armature.pose.bones[prop.bone]
+                head = actor.armature.matrix_world @ posed.head
+                got = prop.obj.matrix_world.translation
+                print(
+                    f"  anchor {prop.obj.name}: wrist {tuple(round(v, 3) for v in head)}"
+                    f" -> prop {tuple(round(v, 3) for v in got)}"
+                    f"  gap {(got - head).length * 100:.1f} cm"
+                )
+            for note in build.notes:
+                print(f"  note: {note}")
+            if build.static:
+                # A set has to be in shot, and framing so far covers only the
+                # character: measured on the badminton clip the net sits 2.2 m away
+                # while the character's own hull is 1.43 x 1.12 m, so the net fell
+                # entirely outside the frame and the sliver that survived read as a
+                # wall. Expanding to the whole set is the other extreme — a 13.4 m
+                # court would leave the figure a few dozen pixels — so the set is
+                # clipped to a box around the player first.
+                reach = args.scene_reach
+                keep_min = np.array([stand_origin[0] - reach, stand_origin[1] - reach, floor_z])
+                keep_max = np.array([stand_origin[0] + reach, stand_origin[1] + reach, floor_z + reach])
+                for obj in build.static:
+                    corners = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+                    box_min = np.min([[c.x, c.y, c.z] for c in corners], axis=0)
+                    box_max = np.max([[c.x, c.y, c.z] for c in corners], axis=0)
+                    box_min = np.maximum(box_min, keep_min)
+                    box_max = np.minimum(box_max, keep_max)
+                    if np.all(box_max > box_min):
+                        mins = np.minimum(mins, box_min)
+                        maxs = np.maximum(maxs, box_max)
+                print(f"  framing widened for the set: {np.round(mins, 2)} .. {np.round(maxs, 2)}")
+        if args.weapon:
+            from motionviewer.blender.mmd_props import (
+                WEAPON_BY_CHARACTER,
+                PropStyle,
+                attach_to_bone,
+                build_weapon_scene,
+            )
+
+            directory = args.asset.parent
+            if args.weapon == "auto":
+                entry = WEAPON_BY_CHARACTER.get(directory.name)
+                if entry is None:
+                    # Walk up: some packs nest the model one level under the pack name.
+                    entry = WEAPON_BY_CHARACTER.get(directory.parent.name)
+                if entry is None:
+                    raise SystemExit(
+                        f"--weapon auto: no weapon known for {directory.name!r}; "
+                        f"have {sorted(WEAPON_BY_CHARACTER)}"
+                    )
+                filename, hand, is_blade = entry
+                weapon_path = directory / filename
+                if not weapon_path.is_file():
+                    weapon_path = directory.parent / filename
+            else:
+                weapon_path = Path(args.weapon)
+                hand, is_blade = "右手首", True
+            if args.weapon_hand:
+                hand = args.weapon_hand
+            if not weapon_path.is_file():
+                raise SystemExit(f"--weapon: {weapon_path} not found")
+            build = build_weapon_scene(
+                bpy,
+                PropStyle(),
+                hand_bone=hand,
+                weapon_path=weapon_path,
+                is_blade=is_blade,
+                grip_offset=args.weapon_grip,
+            )
+            if not all(attach_to_bone(bpy, p, actor.armature) for p in build.props):
+                raise SystemExit(f"--weapon: rig has no bone {hand!r}")
+            if not args.no_outline:
+                add_outline(build.objects, style=ToonStyle(outline_thickness_m=thickness))
+            print(f"weapon: {weapon_path.name} on {hand}")
+            for note in build.notes:
+                print(f"  note: {note}")
+            bpy.context.view_layer.update()
+            for prop in build.props:
+                posed = actor.armature.pose.bones[prop.bone]
+                head = actor.armature.matrix_world @ posed.head
+                got = prop.obj.matrix_world.translation
+                print(f"  anchor {prop.obj.name}: gap {(got - head).length * 100:.1f} cm")
         if not args.no_ground:
             # Only a follow camera needs the grid; a static shot already shows
             # travel as the figure crossing the frame.
@@ -574,7 +802,8 @@ def main() -> None:
     (args.output / "info.json").write_text(
         json.dumps(
             {
-                "motion": str(args.motion),
+                "motion": str(source_path),
+                "source_format": "soma77" if args.soma is not None else "smplx22",
                 "asset": str(args.asset),
                 "caption": args.caption,
                 "frames": total,

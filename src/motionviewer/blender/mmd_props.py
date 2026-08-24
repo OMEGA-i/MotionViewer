@@ -767,3 +767,35 @@ def build_weapon_scene(
             + (", aligned to the forearm" if is_blade else ", at the rig's own orientation")
         ],
     )
+
+
+def load_stage(bpy: Any, path: Any, *, label: str = "stage", scale: float = 1.0) -> list:
+    """Import a community MMD stage PMX and leave it standing in the world.
+
+    Stages are the format the MMD community actually distributes environments in, and
+    the PMX importer already in this project reads them, so nothing new is needed to
+    use one: point ``--stage`` at the file. A stage has no body rig, so its armature is
+    dropped for the same reason a weapon's is — the geometry should sit still in world
+    space, and keeping an unused armature as its parent only risks moving it.
+
+    ``scale`` is exposed because MMD stages are authored in the same 8-units-per-metre
+    convention as the characters but not always consistently, and a stage that is 12%
+    off reads as the character being the wrong size.
+    """
+    from motionviewer.blender.mmd_import import import_pmx_character
+
+    before = set(bpy.data.objects)
+    import_pmx_character(bpy, path, label=label)
+    added = [obj for obj in bpy.data.objects if obj not in before]
+    meshes = [obj for obj in added if obj.type == "MESH"]
+    for obj in added:
+        if obj.type != "MESH":
+            for child in list(obj.children):
+                child.parent = None
+            bpy.data.objects.remove(obj, do_unlink=True)
+    for obj in meshes:
+        obj.modifiers.clear()
+        obj.parent = None
+        if scale != 1.0:
+            obj.scale = (scale, scale, scale)
+    return meshes

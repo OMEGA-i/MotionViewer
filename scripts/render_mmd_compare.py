@@ -76,6 +76,16 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--stage",
+        default="",
+        help=(
+            "Import a community MMD stage PMX as the environment. Stages are the format "
+            "the MMD community distributes sets in and this project's PMX importer "
+            "already reads them, so any stage file drops in. Implies a static camera."
+        ),
+    )
+    parser.add_argument("--stage-scale", type=float, default=1.0)
+    parser.add_argument(
         "--weapon",
         default="",
         help=(
@@ -500,11 +510,12 @@ def main() -> None:
     # A set is world-fixed, so a tracking camera slides it across the frame — the one
     # artefact that gives away a composited prop immediately. An explicit --camera
     # still wins, so this can be overridden when the drift is wanted.
-    if args.scene and args.camera == "auto":
+    if (args.scene or args.stage) and args.camera == "auto":
         from motionviewer.blender.mmd_props import SCENE_DEFAULTS
 
-        if SCENE_DEFAULTS.get(args.scene, {}).get("static_camera") and follow:
-            print(f"camera: forcing static for --scene {args.scene} (a fixed set would drift)")
+        wants_static = bool(args.stage) or SCENE_DEFAULTS.get(args.scene, {}).get("static_camera")
+        if wants_static and follow:
+            print("camera: forcing static (a world-fixed set would drift under a tracking shot)")
             follow = False
     print(f"camera: {'follow' if follow else 'static'} (travel {travel:.2f} m)")
     print(
@@ -633,6 +644,16 @@ def main() -> None:
                         mins = np.minimum(mins, box_min)
                         maxs = np.maximum(maxs, box_max)
                 print(f"  framing widened for the set: {np.round(mins, 2)} .. {np.round(maxs, 2)}")
+        if args.stage:
+            from motionviewer.blender.mmd_props import load_stage
+
+            stage_path = Path(args.stage)
+            if not stage_path.is_file():
+                raise SystemExit(f"--stage: {stage_path} not found")
+            stage_meshes = load_stage(bpy, stage_path, scale=args.stage_scale)
+            print(f"stage: {stage_path.name}, {len(stage_meshes)} mesh(es)")
+            # The stage brings its own MMD materials, already authored for a toon look,
+            # so it is left unshaded rather than pushed through the character's shader.
         if args.weapon:
             from motionviewer.blender.mmd_props import (
                 WEAPON_BY_CHARACTER,

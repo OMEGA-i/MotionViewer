@@ -102,6 +102,7 @@ Project instructions are hierarchical: start with [AGENTS.md](AGENTS.md), then f
 - [Sample Packing Protocol](docs/package_protocol.md)
 - [Package workflows](docs/archives.md)
 - [FBX retargeting](docs/retarget.md)
+- [Adding a downloaded character](docs/characters.md)
 - [Visualising a T2M dataset](docs/dataset-visualisation.md)
 - [Reading SOMA-77 directly](docs/soma-direct.md)
 - [Visual style](docs/visual-style.md)

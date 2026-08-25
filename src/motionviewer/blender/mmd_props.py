@@ -799,3 +799,128 @@ def load_stage(bpy: Any, path: Any, *, label: str = "stage", scale: float = 1.0)
         if scale != 1.0:
             obj.scale = (scale, scale, scale)
     return meshes
+
+
+def _span(obj: Any, axis: int) -> float:
+    values = [v.co[axis] for v in obj.data.vertices]
+    return (max(values) - min(values)) if values else 0.0
+
+
+def _long_axis_and_handle(obj: Any) -> tuple[int, bool, float, float]:
+    """Which local axis the weapon runs along, and which end of it is the handle.
+
+    Nothing about a weapon PMX can be assumed. Measured across four of them, the long
+    axis is +Z on two and +Y on the other two, and the origin sits at the grip end on
+    two and dead centre on the others — so code that hardcodes "length along Z, origin
+    at the handle" points half of them the wrong way and buries the other half halfway
+    into the wrist.
+
+    The handle is found as the *thin* end: a blade is wide and a grip is not, so the
+    cross-section perpendicular to the long axis separates them. Returns the axis index,
+    whether the handle is at the low end of it, and the two extents along that axis.
+    """
+    mesh = obj.data
+    coordinates = [(v.co.x, v.co.y, v.co.z) for v in mesh.vertices]
+    lows = [min(c[axis] for c in coordinates) for axis in range(3)]
+    highs = [max(c[axis] for c in coordinates) for axis in range(3)]
+    spans = [highs[axis] - lows[axis] for axis in range(3)]
+    axis = max(range(3), key=lambda index: spans[index])
+    others = [index for index in range(3) if index != axis]
+
+    def girth(select) -> float:
+        """Mean cross-section extent over the selected slice, 0 if empty."""
+        picked = [c for c in coordinates if select(c[axis])]
+        if not picked:
+            return 0.0
+        return sum(max(c[other] for c in picked) - min(c[other] for c in picked) for other in others) / 2.0
+
+    quarter = spans[axis] * 0.25
+    low_girth = girth(lambda value: value <= lows[axis] + quarter)
+    high_girth = girth(lambda value: value >= highs[axis] - quarter)
+    handle_at_low = low_girth <= high_girth
+    return axis, handle_at_low, lows[axis], highs[axis]
+
+
+def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str) -> dict:
+    """Seat a weapon in the fist: handle in the palm, length along the grip axis.
+
+    Aligning the weapon to the *forearm* and leaving its origin on the wrist is what put
+    the blade across the back of the hand. A held weapon is not an extension of the
+    forearm — its grip lies across the palm, so the axis to match is the fist's, from
+    the wrist to the knuckles, and the handle end has to be moved to where the fingers
+    close rather than left wherever the modeller put the origin.
+    """
+    from mathutils import Matrix, Vector
+
+    bones = armature.pose.bones
+    side = "右" if hand_bone.startswith("右") else "左"
+    knuckle = f"{side}中指１"
+    if hand_bone not in bones:
+        raise KeyError(hand_bone)
+    world = armature.matrix_world
+    wrist = world @ bones[hand_bone].head
+    if knuckle in bones:
+        knuckles = world @ bones[knuckle].head
+    else:
+        # No finger rig: the wrist bone's own tail points down the hand.
+        knuckles = world @ bones[hand_bone].tail
+    grip = knuckles - wrist
+    if grip.length < 1e-6:
+        grip = Vector((0.0, 0.0, -1.0))
+    grip.normalize()
+    palm = wrist + grip * (knuckles - wrist).length * 0.5
+
+    axis, handle_at_low, low, high = _long_axis_and_handle(obj)
+    length = high - low
+    # The widest cross-axis is the blade's flat. Constraining only the long axis leaves
+    # the roll free, and rotation_difference picks whatever is minimal — which put every
+    # blade edge-on to the camera and rendered a sword as a thin rod.
+    flat_axis = max((index for index in range(3) if index != axis), key=lambda index: _span(obj, index))
+    # The handle-to-tip direction in the weapon's own space. Note the sign: with the
+    # handle at the *low* end of the axis the blade extends toward +axis, so this is
+    # +1 there, not -1. Getting it backwards points every blade back through the
+    # character — one sword ended up entirely inside the body and simply vanished.
+    local_axis = Vector((0.0, 0.0, 0.0))
+    local_axis[axis] = 1.0 if handle_at_low else -1.0
+    # Two constraints, so nothing is left to chance: the long axis follows the grip, and
+    # the blade's flat is turned to face across the palm rather than at the camera.
+    palm_across = (world @ bones[hand_bone].matrix).to_3x3() @ Vector((1.0, 0.0, 0.0))
+    forward = grip.normalized()
+    side = palm_across - forward * palm_across.dot(forward)
+    if side.length < 1e-6:
+        side = Vector((0.0, 0.0, 1.0)) - forward * forward.z
+    side.normalize()
+    up = forward.cross(side)
+    target = Matrix((side, up, forward)).transposed()
+    local_flat = Vector((0.0, 0.0, 0.0))
+    local_flat[flat_axis] = 1.0
+    local_up = local_axis.cross(local_flat)
+    if local_up.length < 1e-6:
+        local_up = Vector((0.0, 0.0, 1.0))
+    local_up.normalize()
+    source = Matrix((local_flat.normalized(), local_up, local_axis.normalized())).transposed()
+    rotation = (target @ source.inverted()).to_4x4()
+    # After rotating, the handle end has to land in the palm. Its offset from the
+    # object's origin along the long axis is whatever the modeller left it at.
+    handle_offset = low if handle_at_low else high
+    handle_local = Vector((0.0, 0.0, 0.0))
+    handle_local[axis] = handle_offset
+    obj.matrix_world = Matrix.Translation(palm - (rotation @ handle_local)) @ rotation
+
+    obj.parent = armature
+    obj.parent_type = "BONE"
+    obj.parent_bone = hand_bone
+    # Bone parenting is applied on top of the transform just set, so the parent inverse
+    # has to undo the bone's own placement or the weapon jumps to the bone's tail.
+    bone_matrix = (
+        world @ bones[hand_bone].matrix @ Matrix.Translation(Vector((0.0, bones[hand_bone].length, 0.0)))
+    )
+    obj.matrix_parent_inverse = bone_matrix.inverted() @ obj.matrix_world
+    obj.matrix_world = Matrix.Translation(palm - (rotation @ handle_local)) @ rotation
+    return {
+        "axis": "XYZ"[axis],
+        "flat_axis": "XYZ"[flat_axis],
+        "length_m": length,
+        "handle_at_low": handle_at_low,
+        "palm": tuple(round(v, 3) for v in palm),
+    }

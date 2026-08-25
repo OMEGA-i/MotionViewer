@@ -657,9 +657,8 @@ def main() -> None:
         if args.weapon:
             from motionviewer.blender.mmd_props import (
                 WEAPON_BY_CHARACTER,
-                PropStyle,
-                attach_to_bone,
-                build_weapon_scene,
+                fit_weapon_to_hand,
+                load_weapon,
             )
 
             directory = args.asset.parent
@@ -673,38 +672,49 @@ def main() -> None:
                         f"--weapon auto: no weapon known for {directory.name!r}; "
                         f"have {sorted(WEAPON_BY_CHARACTER)}"
                     )
-                filename, hand, is_blade = entry
+                filename, hand, _ = entry
                 weapon_path = directory / filename
                 if not weapon_path.is_file():
                     weapon_path = directory.parent / filename
             else:
                 weapon_path = Path(args.weapon)
-                hand, is_blade = "右手首", True
+                hand = "右手首"
             if args.weapon_hand:
                 hand = args.weapon_hand
             if not weapon_path.is_file():
                 raise SystemExit(f"--weapon: {weapon_path} not found")
-            build = build_weapon_scene(
-                bpy,
-                PropStyle(),
-                hand_bone=hand,
-                weapon_path=weapon_path,
-                is_blade=is_blade,
-                grip_offset=args.weapon_grip,
-            )
-            if not all(attach_to_bone(bpy, p, actor.armature) for p in build.props):
-                raise SystemExit(f"--weapon: rig has no bone {hand!r}")
+            weapon = load_weapon(bpy, weapon_path)
+            try:
+                fit = fit_weapon_to_hand(bpy, weapon, actor.armature, hand)
+            except KeyError:
+                raise SystemExit(f"--weapon: rig has no bone {hand!r}") from None
             if not args.no_outline:
-                add_outline(build.objects, style=ToonStyle(outline_thickness_m=thickness))
-            print(f"weapon: {weapon_path.name} on {hand}")
-            for note in build.notes:
-                print(f"  note: {note}")
-            bpy.context.view_layer.update()
-            for prop in build.props:
-                posed = actor.armature.pose.bones[prop.bone]
-                head = actor.armature.matrix_world @ posed.head
-                got = prop.obj.matrix_world.translation
-                print(f"  anchor {prop.obj.name}: gap {(got - head).length * 100:.1f} cm")
+                add_outline([weapon], style=ToonStyle(outline_thickness_m=thickness))
+            print(
+                f"weapon: {weapon_path.name} on {hand}, long axis {fit['axis']}, "
+                f"{fit['length_m']:.2f} m, handle at {'low' if fit['handle_at_low'] else 'high'} end"
+            )
+            print(f"  grip seated at palm {fit['palm']}")
+            # A 1.2-2.3 m weapon raised overhead reaches far outside a hull built from
+            # the body alone, so framing has to cover it or the blade leaves the frame
+            # and the render shows a stub. Sampled over the clip because the weapon
+            # follows the hand and its extent is not known from one frame.
+            weapon_min = np.full(3, 1e9)
+            weapon_max = np.full(3, -1e9)
+            step = max(1, total // 24)
+            for frame in range(frame_start, frame_start + total, step):
+                bpy.context.scene.frame_set(frame)
+                bpy.context.view_layer.update()
+                for corner in weapon.bound_box:
+                    point = weapon.matrix_world @ Vector(corner)
+                    weapon_min = np.minimum(weapon_min, [point.x, point.y, point.z])
+                    weapon_max = np.maximum(weapon_max, [point.x, point.y, point.z])
+            bpy.context.scene.frame_set(frame_start)
+            if np.all(weapon_max > weapon_min):
+                mins = np.minimum(mins, weapon_min)
+                maxs = np.maximum(maxs, weapon_max)
+                follow_span = weapon_max - weapon_min
+                print(f"  framing widened for the weapon: extent {np.round(follow_span, 2)}")
         if not args.no_ground:
             # Only a follow camera needs the grid; a static shot already shows
             # travel as the figure crossing the frame.

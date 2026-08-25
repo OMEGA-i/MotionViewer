@@ -123,6 +123,25 @@ def main() -> None:
         help="Metres from the player to the table's near edge / the net",
     )
     parser.add_argument(
+        "--bullet",
+        action="store_true",
+        help=(
+            "Simulate the PMX's own rigid bodies and joints, the way MMD does. A skinned "
+            "skirt has no idea a leg exists, so the leg passes through it; the model ships "
+            "collision bodies for exactly this and MMD players run Bullet on them. Costs a "
+            "physics bake per clip and is mutually exclusive with --spring, which "
+            "approximates swing without any collision."
+        ),
+    )
+    parser.add_argument("--bullet-substeps", type=int, default=12)
+    parser.add_argument("--bullet-iterations", type=int, default=24)
+    parser.add_argument(
+        "--bullet-settle",
+        type=int,
+        default=30,
+        help="Frames simulated before the first rendered one, so cloth starts hanging rather than dropping on camera",
+    )
+    parser.add_argument(
         "--spring",
         action="store_true",
         help="Bake secondary motion onto the bones the PMX marks as dynamic",
@@ -217,6 +236,8 @@ def main() -> None:
     args = parser.parse_args(sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else [])
     if (args.motion is None) == (args.soma is None):
         parser.error("give exactly one of --motion (SMPL-X) or --soma (SOMA-77)")
+    if args.spring and args.bullet:
+        parser.error("--spring approximates what --bullet simulates; pick one")
 
     import bpy  # type: ignore
     import numpy as np
@@ -274,7 +295,7 @@ def main() -> None:
             fbx_scale=0.08,
             retarget_mode="direct",
             mmd_polish={"enabled": not args.faithful},
-            mmd_physics=args.spring,
+            mmd_physics=args.spring or args.bullet,
             mmd_morphs=args.expression != "none",
         )
     scene = bpy.context.scene
@@ -293,6 +314,18 @@ def main() -> None:
     joints = source_joints_of(source_path)
     total = len(joints) if args.frames <= 0 else min(args.frames, len(joints))
     frame_end = frame_start + total - 1
+
+    # The scene's frame rate had never been set, so it sat at Blender's default 24 while
+    # the motion is baked one keyframe per source frame at 50 fps. That only mattered
+    # once physics arrived: Bullet takes its timestep from the scene rate, so the bones
+    # advanced a 50 fps step inside a 24 fps tick and flung the cloth apart — the skirt
+    # came out torn rather than draped. Encoding never noticed because ffmpeg is told
+    # the rate on its own command line.
+    with np.load(source_path, allow_pickle=False) as fps_payload:
+        source_fps = float(fps_payload["fps"]) if "fps" in fps_payload else 30.0
+    bpy.context.scene.render.fps = int(round(source_fps))
+    bpy.context.scene.render.fps_base = 1.0
+    print(f"scene frame rate: {bpy.context.scene.render.fps} fps (from the clip)")
 
     expression_info: dict = {"preset": "none"}
     if args.expression != "none":
@@ -583,6 +616,8 @@ def main() -> None:
             hand = args.scene_hand or SCENE_DEFAULTS[args.scene]["hand"]
             builder = SCENE_BUILDERS[args.scene]
             kwargs: dict = {"hand_bone": hand}
+            if args.scene == "carry_box":
+                kwargs["forward"] = (float(heading[0]), float(heading[1]))
             if args.scene in ("table_tennis", "badminton"):
                 kwargs.update(
                     origin=(float(stand_origin[0]), float(stand_origin[1])),
@@ -657,6 +692,7 @@ def main() -> None:
         if args.weapon:
             from motionviewer.blender.mmd_props import (
                 WEAPON_BY_CHARACTER,
+                close_hand,
                 fit_weapon_to_hand,
                 load_weapon,
             )
@@ -672,29 +708,32 @@ def main() -> None:
                         f"--weapon auto: no weapon known for {directory.name!r}; "
                         f"have {sorted(WEAPON_BY_CHARACTER)}"
                     )
-                filename, hand, _ = entry
+                filename = entry["file"]
+                hand = entry["hand"]
+                grip = entry["grip"]
                 weapon_path = directory / filename
                 if not weapon_path.is_file():
                     weapon_path = directory.parent / filename
             else:
                 weapon_path = Path(args.weapon)
-                hand = "右手首"
+                hand, grip = "右手首", "low"
             if args.weapon_hand:
                 hand = args.weapon_hand
             if not weapon_path.is_file():
                 raise SystemExit(f"--weapon: {weapon_path} not found")
             weapon = load_weapon(bpy, weapon_path)
             try:
-                fit = fit_weapon_to_hand(bpy, weapon, actor.armature, hand)
+                fit = fit_weapon_to_hand(bpy, weapon, actor.armature, hand, grip=grip)
             except KeyError:
                 raise SystemExit(f"--weapon: rig has no bone {hand!r}") from None
             if not args.no_outline:
                 add_outline([weapon], style=ToonStyle(outline_thickness_m=thickness))
+            fingers = close_hand(bpy, actor.armature, hand)
             print(
-                f"weapon: {weapon_path.name} on {hand}, long axis {fit['axis']}, "
-                f"{fit['length_m']:.2f} m, handle at {'low' if fit['handle_at_low'] else 'high'} end"
+                f"weapon: {weapon_path.name} on {hand}, grip={fit['grip']}, "
+                f"{fit['length_m']:.2f} m, {fingers} finger bones curled"
             )
-            print(f"  grip seated at palm {fit['palm']}")
+            print(f"  palm {fit['palm']}  tip {fit['tip']}")
             # A 1.2-2.3 m weapon raised overhead reaches far outside a hull built from
             # the body alone, so framing has to cover it or the blade leaves the frame
             # and the render shows a stub. Sampled over the clip because the weapon
@@ -740,6 +779,25 @@ def main() -> None:
             bpy, actor.armature, frame_start=frame_start, num_frames=total, style=style
         )
         print(f"spring: {json.dumps(spring_info, ensure_ascii=False)}")
+    physics_info: dict = {"built": False}
+    if args.bullet:
+        from motionviewer.blender.mmd_bullet import BulletSettings, build_and_bake
+
+        # After the retarget and after any pass that jumps around the timeline: building
+        # the rig disconnects the physics bones, and a rigid body cache fed frames out of
+        # order bakes garbage.
+        physics_info = build_and_bake(
+            bpy,
+            actor.armature,
+            frame_start=frame_start,
+            frame_end=frame_end,
+            settings=BulletSettings(
+                substeps=args.bullet_substeps,
+                iterations=args.bullet_iterations,
+                settle_frames=args.bullet_settle,
+            ),
+        )
+        print(f"bullet: {json.dumps(physics_info, ensure_ascii=False)}")
     scene.render.engine = _normalize_engine("BLENDER_EEVEE")
     scene.render.resolution_x = width
     scene.render.resolution_y = args.resolution

@@ -219,26 +219,33 @@ def _sphere(
 # ---------------------------------------------------------------------------
 
 
-def build_cardboard_box(bpy: Any, style: PropStyle, *, side: float = 0.38) -> Any:
-    """A carried box: five panels plus a tape strip, so the open top reads as a box.
+def build_cardboard_box(
+    bpy: Any, style: PropStyle, *, side: float = 0.34, depth: float = 0.30, height: float = 0.30
+) -> Any:
+    """A closed crate, sized independently on each axis.
 
-    A solid cube would be ambiguous at this size — it could be a crate, a block, or a
-    rendering error. The rim and the tape are what make it legible.
+    Closed rather than open-topped: this is carried in front of the chest at a camera
+    that looks slightly down, so an open box shows its empty interior and reads as a
+    prop nobody is really holding. The lid seam and the corner battens are what make it
+    legible as a container at this size, where a plain cube could be a block or a
+    rendering error.
     """
-    half = side / 2.0
+    hw, hd, hh = side / 2.0, depth / 2.0, height / 2.0
     wall = 0.012
     parts = [
-        _cube(bpy, "box_base", (side, side, wall), (0.0, 0.0, -half), style.cardboard),
-        _cube(bpy, "box_x+", (wall, side, side), (half, 0.0, 0.0), style.cardboard),
-        _cube(bpy, "box_x-", (wall, side, side), (-half, 0.0, 0.0), style.cardboard),
-        _cube(bpy, "box_y+", (side, wall, side), (0.0, half, 0.0), style.cardboard),
-        _cube(bpy, "box_y-", (side, wall, side), (0.0, -half, 0.0), style.cardboard),
+        _cube(bpy, "crate_top", (side, depth, wall), (0.0, 0.0, hh), style.cardboard),
+        _cube(bpy, "crate_base", (side, depth, wall), (0.0, 0.0, -hh), style.cardboard),
+        _cube(bpy, "crate_x+", (wall, depth, height), (hw, 0.0, 0.0), style.cardboard),
+        _cube(bpy, "crate_x-", (wall, depth, height), (-hw, 0.0, 0.0), style.cardboard),
+        _cube(bpy, "crate_y+", (side, wall, height), (0.0, hd, 0.0), style.cardboard),
+        _cube(bpy, "crate_y-", (side, wall, height), (0.0, -hd, 0.0), style.cardboard),
+        # A seam across the lid, and battens down the front corners.
+        _cube(bpy, "crate_seam", (side * 1.004, 0.05, wall * 1.4), (0.0, 0.0, hh), style.cardboard_tape),
         _cube(
-            bpy,
-            "box_tape",
-            (0.07, side * 1.002, wall * 1.6),
-            (0.0, 0.0, -half + wall),
-            style.cardboard_tape,
+            bpy, "crate_batten_l", (0.035, wall * 1.6, height), (-hw + 0.03, -hd, 0.0), style.cardboard_tape
+        ),
+        _cube(
+            bpy, "crate_batten_r", (0.035, wall * 1.6, height), (hw - 0.03, -hd, 0.0), style.cardboard_tape
         ),
     ]
     return _join(bpy, parts, "prop_box")
@@ -623,32 +630,43 @@ def build_carry_box_scene(
     *,
     hand_bone: str,
     other_bone: str | None = "右手首",
-    side: float = 0.33,
+    side: float = 0.34,
+    depth: float = 0.30,
+    height: float = 0.30,
+    forward: tuple[float, float] = (0.0, -1.0),
+    push: float = 0.10,
 ) -> SceneBuild:
-    """A box held between both hands.
+    """A crate held between both hands, in front of them rather than under them.
 
-    A prop cannot have two parents, so it hangs off one wrist and is then slid halfway
-    to the other. That works because the two wrists are effectively rigid while the box
-    is carried — measured over the carry clip they sit 357 mm apart with a 48 mm
-    standard deviation — so half the gap lands on the midpoint the hands actually grip.
-    Parenting to the torso instead would be stabler but wrong: the same midpoint ranges
-    over 0.42 x 0.47 m relative to the chest as the arms move.
+    Sizing and placement are measured off the clip rather than guessed. Over the carry
+    section of 016783 the two wrists sit 366 mm apart, 0.33 m in front of the chest and
+    1.31 m off the floor, level to within 4 cm — and the palm normals point *forward*
+    (dot 0.81 and 0.55 with the body's facing) while the forearms angle up (0.68). So the
+    object is in front of the hands, not hanging below them.
 
-    ``side`` is sized just under that spacing so the palms sit on the outer faces
-    rather than inside the cardboard.
+    An earlier version hung it below, which is what a box carried at waist height would
+    do, and the forearms — which come up from the elbows at that angle — went straight
+    through it. Pushing it forward instead clears the torso by 17 cm and the chin by
+    9 cm, with the hands just outside its sides.
     """
+    # Drop the crate by half its height so its *top* meets the hands rather than its
+    # waistline. The palm normals point forward **and down** (measured: +0.81 forward,
+    # -0.50 up), and a palm facing down is resting on something, not gripping its
+    # middle — so the load hangs below and in front of the hands. Centring it on the
+    # wrists put half the crate under them, which reads as the hands passing through it.
     box = Prop(
-        obj=build_cardboard_box(bpy, style, side=side),
+        obj=build_cardboard_box(bpy, style, side=side, depth=depth, height=height),
         bone=hand_bone,
-        offset=(0.0, 0.0, 0.0),
-        euler=(0.0, 0.0, 0.0),
         aim_bone=other_bone,
         aim_fraction=0.5,
-        world_offset=(0.0, 0.0, -side / 2.0),
+        world_offset=(forward[0] * push, forward[1] * push, -height / 2.0 + 0.02),
     )
-    notes = [f"box {side * 100:.0f} cm, centred between {hand_bone} and {other_bone}"]
+    notes = [
+        f"crate {side * 100:.0f}x{depth * 100:.0f}x{height * 100:.0f} cm, "
+        f"hung from the wrists by its top edge, {push * 100:.0f} cm forward"
+    ]
     if not other_bone:
-        notes.append("no second hand given, so the box hangs off one wrist and will drift")
+        notes.append("no second hand given, so the crate hangs off one wrist and will drift")
     return SceneBuild(props=[box], notes=notes)
 
 
@@ -685,22 +703,38 @@ SCENE_DEFAULTS = {
 # weapons that ship as their own PMX
 # ---------------------------------------------------------------------------
 
-#: Character directory -> (weapon file, which hand, whether it is a blade). Genshin and
-#: Star Rail rips ship the weapon as a separate model with a handful of bones and no
-#: body, which is why the probe reports it as missing every required bone. That makes it
-#: a prop, and the prop machinery already knows how to follow a wrist.
-WEAPON_BY_CHARACTER: dict[str, tuple[str, str, bool]] = {
-    "星穹铁道—彦卿": ("武器.pmx", "右手首", True),
-    "星穹铁道—流萤·春日手信": ("剑.pmx", "右手首", True),
-    "星穹铁道—飞霄无外套": ("星穹铁道—飞霄武器.pmx", "右手首", True),
-    "青衣": ("武器.pmx", "右手首", True),
-    "星穹铁道—三月七": ("弓1.0.pmx", "左手首", False),
-    "星穹铁道—火花·甜梦电波": ("手杖（整.pmx", "右手首", False),
-    "星穹铁道——银狼": ("炮.pmx", "右手首", False),
-    "耀嘉音": ("武器.pmx", "右手首", False),
-    "星穹铁道—知更鸟": ("ｻｰﾍｲ.pmx", "右手首", False),
-    "星穹铁道—花火": ("剑玉.pmx", "右手首", False),
-    "奥黛塔": ("ｽ｣.pmx", "右手首", False),
+#: Character directory -> how to hold its weapon.
+#:
+#: ``grip`` says which end of the weapon's long axis the hand goes on: ``"low"``,
+#: ``"high"`` or ``"mid"``. It is a table rather than something inferred, because it
+#: cannot be inferred reliably. Three geometric rules were tried against the four
+#: blades' measured girth profiles and each got three right and one wrong:
+#:
+#: * "the thin end is the grip" — a sword's blade tapers thinner than its pommel, so
+#:   this puts the tip in the hand. This is the rule that shipped, and the render had
+#:   the hilt pointing away and the tip through the back of the hand.
+#: * "the grip is beside the widest slice" (the guard) — right for the two swords,
+#:   wrong for a glaive whose blade fan is the widest thing on it.
+#: * "the grip is the longest thin run" — right for the glaive's shaft, wrong for the
+#:   swords, whose blades are longer than their grips.
+#:
+#: The profiles that decide each entry, in mm across 20 slices low to high:
+#:   彦卿  40 38 31 32 [103] 86 51 39 ... 18   grip = the 4 thin slices below the guard
+#:   流萤  20 38 26 31 [121 140] 68 ... 14     same shape
+#:   青衣  64 61 61 101 31 ... 31 101 61 61 64  symmetric staff, held in the middle
+#:   飞霄  32 [622 669 722 785] ... 30 50 41    blade fan is 70% of it; shaft is on top
+WEAPON_BY_CHARACTER: dict[str, dict] = {
+    "星穹铁道—彦卿": {"file": "武器.pmx", "hand": "右手首", "grip": "low"},
+    "星穹铁道—流萤·春日手信": {"file": "剑.pmx", "hand": "右手首", "grip": "low"},
+    "星穹铁道—飞霄无外套": {"file": "星穹铁道—飞霄武器.pmx", "hand": "右手首", "grip": "high"},
+    "青衣": {"file": "武器.pmx", "hand": "右手首", "grip": "mid"},
+    "星穹铁道—三月七": {"file": "弓1.0.pmx", "hand": "左手首", "grip": "mid"},
+    "星穹铁道—火花·甜梦电波": {"file": "手杖（整.pmx", "hand": "右手首", "grip": "low"},
+    "星穹铁道——银狼": {"file": "炮.pmx", "hand": "右手首", "grip": "mid"},
+    "耀嘉音": {"file": "武器.pmx", "hand": "右手首", "grip": "mid"},
+    "星穹铁道—知更鸟": {"file": "话筒.pmx", "hand": "右手首", "grip": "low"},
+    "星穹铁道—花火": {"file": "剑玉.pmx", "hand": "右手首", "grip": "mid"},
+    "奥黛塔": {"file": "剑.pmx", "hand": "右手首", "grip": "low"},
 }
 
 
@@ -806,6 +840,142 @@ def _span(obj: Any, axis: int) -> float:
     return (max(values) - min(values)) if values else 0.0
 
 
+def _grip_point_and_axis(obj: Any, grip: str) -> tuple[Any, Any, float]:
+    """Where the hand goes on this weapon, and which way the business end points.
+
+    ``grip`` is taken from the table rather than measured; see WEAPON_BY_CHARACTER for
+    the four girth profiles that show why no single geometric rule fits all of them.
+    """
+    from mathutils import Vector
+
+    coordinates = [(v.co.x, v.co.y, v.co.z) for v in obj.data.vertices]
+    lows = [min(c[axis] for c in coordinates) for axis in range(3)]
+    highs = [max(c[axis] for c in coordinates) for axis in range(3)]
+    spans = [highs[axis] - lows[axis] for axis in range(3)]
+    axis = max(range(3), key=lambda index: spans[index])
+
+    grip_local = Vector((0.0, 0.0, 0.0))
+    direction = Vector((0.0, 0.0, 0.0))
+    if grip == "low":
+        grip_local[axis] = lows[axis]
+        direction[axis] = 1.0
+    elif grip == "high":
+        grip_local[axis] = highs[axis]
+        direction[axis] = -1.0
+    else:  # mid: a staff or a bow, held at its balance point
+        grip_local[axis] = (lows[axis] + highs[axis]) / 2.0
+        direction[axis] = 1.0
+    # Centre the grip on the other two axes, so a thick pommel is not held by its corner.
+    for other in (index for index in range(3) if index != axis):
+        grip_local[other] = (lows[other] + highs[other]) / 2.0
+    return grip_local, direction, spans[axis]
+
+
+def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str, grip: str = "low") -> dict:
+    """Put the grip in the palm and point the weapon away from the character.
+
+    Two things went wrong before this and both showed up as the same picture. The grip
+    end was chosen by a geometric guess that is inverted for a sword, so the tip sat in
+    the hand and the hilt pointed outward. And the weapon was aimed along the *forearm*,
+    which for a raised arm points the blade back over the character's own head.
+
+    Now the grip end comes from the table, and the weapon points along the fist axis —
+    wrist to knuckles, continued outward — which is the direction a held blade actually
+    runs.
+    """
+    from mathutils import Matrix, Vector
+
+    bones = armature.pose.bones
+    if hand_bone not in bones:
+        raise KeyError(hand_bone)
+    side = "右" if hand_bone.startswith("右") else "左"
+    knuckle = f"{side}中指１"
+    world = armature.matrix_world
+    wrist = world @ bones[hand_bone].head
+    knuckles = world @ (bones[knuckle].head if knuckle in bones else bones[hand_bone].tail)
+    forward = knuckles - wrist
+    if forward.length < 1e-6:
+        forward = Vector((0.0, 0.0, -1.0))
+    forward.normalize()
+    palm = wrist + forward * (knuckles - wrist).length * 0.6
+
+    grip_local, local_dir, length = _grip_point_and_axis(obj, grip)
+
+    # Constrain the roll too: the blade's flat is turned across the palm rather than at
+    # the camera. Leaving it to rotation_difference rendered a 2 m polearm as a rod.
+    across = (world @ bones[hand_bone].matrix).to_3x3() @ Vector((1.0, 0.0, 0.0))
+    side_vec = across - forward * across.dot(forward)
+    if side_vec.length < 1e-6:
+        side_vec = Vector((0.0, 0.0, 1.0)) - forward * forward.z
+    side_vec.normalize()
+    up = forward.cross(side_vec)
+    target = Matrix((side_vec, up, forward)).transposed()
+
+    flat_axis = max(
+        (index for index in range(3) if abs(local_dir[index]) < 0.5),
+        key=lambda index: _span(obj, index),
+    )
+    local_flat = Vector((0.0, 0.0, 0.0))
+    local_flat[flat_axis] = 1.0
+    local_up = local_dir.normalized().cross(local_flat)
+    if local_up.length < 1e-6:
+        local_up = Vector((0.0, 0.0, 1.0))
+    local_up.normalize()
+    source = Matrix((local_flat, local_up, local_dir.normalized())).transposed()
+    rotation = (target @ source.inverted()).to_4x4()
+
+    placement = Matrix.Translation(palm - (rotation @ grip_local)) @ rotation
+    obj.parent = armature
+    obj.parent_type = "BONE"
+    obj.parent_bone = hand_bone
+    obj.matrix_parent_inverse = Matrix.Identity(4)
+    obj.matrix_world = placement
+    return {
+        "grip": grip,
+        "length_m": length,
+        "palm": tuple(round(v, 3) for v in palm),
+        "tip": tuple(round(v, 3) for v in (palm + forward * length)),
+    }
+
+
+CLOSED_FINGER_DEGREES = {
+    "１": 42.0,
+    "２": 52.0,
+    "３": 34.0,
+}
+
+
+def close_hand(bpy: Any, armature: Any, hand_bone: str) -> int:
+    """Curl the fingers of the weapon hand into a fist.
+
+    The retarget leaves the hand in its relaxed rest curl because the body-22 source
+    carries no finger data. Around a sword that reads as an open palm with a blade
+    balanced on it, which is what the render showed. Bending the three phalanges of the
+    four fingers — the thumb is left alone, since it wraps the other way and a uniform
+    curl makes it cross the grip — is enough for a fist at the size a hand occupies.
+    """
+    del bpy
+    side = "右" if hand_bone.startswith("右") else "左"
+    turned = 0
+    for finger in ("人指", "中指", "薬指", "小指"):
+        for segment, degrees in CLOSED_FINGER_DEGREES.items():
+            name = f"{side}{finger}{segment}"
+            bone = armature.pose.bones.get(name)
+            if bone is None:
+                continue
+            bone.rotation_mode = "XYZ"
+            # Negative about local X curls the finger toward the palm on this rig family.
+            bone.rotation_euler.x -= math.radians(degrees)
+            bone.keyframe_insert("rotation_euler", index=-1)
+            turned += 1
+    return turned
+
+
+def _span(obj: Any, axis: int) -> float:
+    values = [v.co[axis] for v in obj.data.vertices]
+    return (max(values) - min(values)) if values else 0.0
+
+
 def _long_axis_and_handle(obj: Any) -> tuple[int, bool, float, float]:
     """Which local axis the weapon runs along, and which end of it is the handle.
 
@@ -839,88 +1009,3 @@ def _long_axis_and_handle(obj: Any) -> tuple[int, bool, float, float]:
     high_girth = girth(lambda value: value >= highs[axis] - quarter)
     handle_at_low = low_girth <= high_girth
     return axis, handle_at_low, lows[axis], highs[axis]
-
-
-def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str) -> dict:
-    """Seat a weapon in the fist: handle in the palm, length along the grip axis.
-
-    Aligning the weapon to the *forearm* and leaving its origin on the wrist is what put
-    the blade across the back of the hand. A held weapon is not an extension of the
-    forearm — its grip lies across the palm, so the axis to match is the fist's, from
-    the wrist to the knuckles, and the handle end has to be moved to where the fingers
-    close rather than left wherever the modeller put the origin.
-    """
-    from mathutils import Matrix, Vector
-
-    bones = armature.pose.bones
-    side = "右" if hand_bone.startswith("右") else "左"
-    knuckle = f"{side}中指１"
-    if hand_bone not in bones:
-        raise KeyError(hand_bone)
-    world = armature.matrix_world
-    wrist = world @ bones[hand_bone].head
-    if knuckle in bones:
-        knuckles = world @ bones[knuckle].head
-    else:
-        # No finger rig: the wrist bone's own tail points down the hand.
-        knuckles = world @ bones[hand_bone].tail
-    grip = knuckles - wrist
-    if grip.length < 1e-6:
-        grip = Vector((0.0, 0.0, -1.0))
-    grip.normalize()
-    palm = wrist + grip * (knuckles - wrist).length * 0.5
-
-    axis, handle_at_low, low, high = _long_axis_and_handle(obj)
-    length = high - low
-    # The widest cross-axis is the blade's flat. Constraining only the long axis leaves
-    # the roll free, and rotation_difference picks whatever is minimal — which put every
-    # blade edge-on to the camera and rendered a sword as a thin rod.
-    flat_axis = max((index for index in range(3) if index != axis), key=lambda index: _span(obj, index))
-    # The handle-to-tip direction in the weapon's own space. Note the sign: with the
-    # handle at the *low* end of the axis the blade extends toward +axis, so this is
-    # +1 there, not -1. Getting it backwards points every blade back through the
-    # character — one sword ended up entirely inside the body and simply vanished.
-    local_axis = Vector((0.0, 0.0, 0.0))
-    local_axis[axis] = 1.0 if handle_at_low else -1.0
-    # Two constraints, so nothing is left to chance: the long axis follows the grip, and
-    # the blade's flat is turned to face across the palm rather than at the camera.
-    palm_across = (world @ bones[hand_bone].matrix).to_3x3() @ Vector((1.0, 0.0, 0.0))
-    forward = grip.normalized()
-    side = palm_across - forward * palm_across.dot(forward)
-    if side.length < 1e-6:
-        side = Vector((0.0, 0.0, 1.0)) - forward * forward.z
-    side.normalize()
-    up = forward.cross(side)
-    target = Matrix((side, up, forward)).transposed()
-    local_flat = Vector((0.0, 0.0, 0.0))
-    local_flat[flat_axis] = 1.0
-    local_up = local_axis.cross(local_flat)
-    if local_up.length < 1e-6:
-        local_up = Vector((0.0, 0.0, 1.0))
-    local_up.normalize()
-    source = Matrix((local_flat.normalized(), local_up, local_axis.normalized())).transposed()
-    rotation = (target @ source.inverted()).to_4x4()
-    # After rotating, the handle end has to land in the palm. Its offset from the
-    # object's origin along the long axis is whatever the modeller left it at.
-    handle_offset = low if handle_at_low else high
-    handle_local = Vector((0.0, 0.0, 0.0))
-    handle_local[axis] = handle_offset
-    obj.matrix_world = Matrix.Translation(palm - (rotation @ handle_local)) @ rotation
-
-    obj.parent = armature
-    obj.parent_type = "BONE"
-    obj.parent_bone = hand_bone
-    # Bone parenting is applied on top of the transform just set, so the parent inverse
-    # has to undo the bone's own placement or the weapon jumps to the bone's tail.
-    bone_matrix = (
-        world @ bones[hand_bone].matrix @ Matrix.Translation(Vector((0.0, bones[hand_bone].length, 0.0)))
-    )
-    obj.matrix_parent_inverse = bone_matrix.inverted() @ obj.matrix_world
-    obj.matrix_world = Matrix.Translation(palm - (rotation @ handle_local)) @ rotation
-    return {
-        "axis": "XYZ"[axis],
-        "flat_axis": "XYZ"[flat_axis],
-        "length_m": length,
-        "handle_at_low": handle_at_low,
-        "palm": tuple(round(v, 3) for v in palm),
-    }

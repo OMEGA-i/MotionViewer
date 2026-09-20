@@ -128,6 +128,7 @@ def main() -> None:
             shaft_m=fit["shaft_mm"] / 1000.0,
             weapon=weapon,
             grip=entry["grip"],
+            palm_normal=Vector(fit["palm_normal"]),
         )
 
         apply_toon_shading(list(actor.mesh_objects) + [weapon])

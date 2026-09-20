@@ -737,6 +737,7 @@ def main() -> None:
                 shaft_m=fit["shaft_mm"] / 1000.0,
                 weapon=weapon,
                 grip=grip,
+                palm_normal=Vector(fit["palm_normal"]),
             )
             print(
                 f"weapon: {weapon_path.name} on {hand}, grip={fit['grip']}, "

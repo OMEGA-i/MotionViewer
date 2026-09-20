@@ -923,6 +923,96 @@ def _grip_point_and_axis(obj: Any, grip: str) -> tuple[Any, Any, float, float]:
     return grip_local, direction, float(spans[axis]), shaft
 
 
+def grip_axis_from_fingers(bpy: Any, armature: Any, hand_bone: str) -> tuple[Any, Any, Any]:
+    """The line a closed fist actually encircles, measured by closing it.
+
+    Everything about this was guessed before and each guess was wrong in a way the
+    numbers hid. The shaft was put along the knuckle *heads*, which are the bone line and
+    run level with the back of the hand, so it rode on top of the knuckles. Sinking it by
+    a radius needed a palm direction, and orienting that by the thumb's base gave the
+    wrong sign — the thumb root sits beside the hand, not on the palm, and a test curl
+    moves the fingertip the other way. Each fix moved the shaft somewhere new and still
+    outside the fingers.
+
+    So this stops guessing and asks the hand. It curls the four fingers to a typical fist,
+    takes the midpoint between each knuckle and its own fingertip — the centre of the ring
+    that finger has formed — and fits a line through the four. On Liuying those four
+    midpoints are collinear to 1.4-2.1 mm, which is what makes them a grip axis rather
+    than four unrelated points. The result is 5.2 degrees off the knuckle line, so the
+    direction was nearly right all along; its centre is 9.4 mm away, on the palm side,
+    and that offset is the whole difference between holding a sword and resting one on
+    your fingers.
+
+    Returns the axis point, its unit direction, and the palm normal, all in world space.
+    The pose is restored before returning.
+    """
+    from mathutils import Euler, Vector
+
+    side = "右" if hand_bone.startswith("右") else "左"
+    fingers = ("人指", "中指", "薬指", "小指")
+    world = armature.matrix_world
+    bones = armature.pose.bones
+
+    saved = []
+    for finger in fingers:
+        for segment in ("１", "２", "３"):
+            bone = bones.get(f"{side}{finger}{segment}")
+            if bone is not None:
+                bone.rotation_mode = "QUATERNION"
+                saved.append((bone, bone.rotation_quaternion.copy()))
+    if not saved:
+        return None, None, None
+
+    # A typical fist. The exact angles do not matter — they only have to be enough for
+    # the fingers to form rings, since the solve refines each one afterwards.
+    for bone, _ in saved:
+        for segment, degrees in (("１", 75.0), ("２", 90.0), ("３", 60.0)):
+            if bone.name.endswith(segment):
+                bone.rotation_quaternion = (
+                    bone.rotation_quaternion @ Euler((math.radians(degrees), 0.0, 0.0), "XYZ").to_quaternion()
+                )
+                break
+    bpy.context.view_layer.update()
+
+    centres = []
+    for finger in fingers:
+        knuckle = bones.get(f"{side}{finger}１")
+        tip = bones.get(f"{side}{finger}３")
+        if knuckle is None or tip is None:
+            continue
+        centres.append(((world @ knuckle.head) + (world @ tip.tail)) / 2.0)
+
+    for bone, original in saved:
+        bone.rotation_quaternion = original
+    bpy.context.view_layer.update()
+
+    if len(centres) < 2:
+        return None, None, None
+
+    origin = Vector((0.0, 0.0, 0.0))
+    for point in centres:
+        origin += point
+    origin /= len(centres)
+    # Direction from the spread of the centres: first to last is enough at four points,
+    # and avoids pulling numpy into this module.
+    direction = (centres[-1] - centres[0]).normalized()
+
+    # Palm normal: from the knuckle line toward the axis, which is by construction the
+    # side the fingers close on.
+    knuckle_centre = Vector((0.0, 0.0, 0.0))
+    count = 0
+    for finger in fingers:
+        knuckle = bones.get(f"{side}{finger}１")
+        if knuckle is not None:
+            knuckle_centre += world @ knuckle.head
+            count += 1
+    normal = origin - knuckle_centre / max(count, 1)
+    normal = normal - direction * normal.dot(direction)
+    if normal.length < 1e-6:
+        normal = Vector((0.0, 0.0, 1.0))
+    return origin, direction, normal.normalized()
+
+
 def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str, grip: str = "low") -> dict:
     """Put the grip in the palm and point the weapon away from the character.
 
@@ -971,6 +1061,9 @@ def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str, grip: 
         palm /= len(present)
     else:
         palm = wrist + forward * (knuckles - wrist).length * 0.6
+    # Measured grip axis first: close the fist and see what line it encircles. The
+    # knuckle-line construction below is the fallback for a rig with no finger bones.
+    measured_origin, measured_dir, measured_normal = grip_axis_from_fingers(bpy, armature, hand_bone)
 
     # The knuckle line: the axis a closed fist encircles. Falls back to the hand bone's
     # own X when a rig has no finger bones to measure it from.
@@ -991,7 +1084,62 @@ def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str, grip: 
     if (palm + shaft_dir).length < (palm - shaft_dir).length:
         shaft_dir = -shaft_dir
 
+    # Sink the shaft into the palm. The knuckle *heads* are the bone line, which runs
+    # level with the back of the hand — a shaft placed exactly there rides on top of the
+    # knuckles, which is what "the hilt on the back of the hand" looks like. Measured on
+    # Liuying: the grip sat at -0.0 mm on the palm normal while the curled fingertips
+    # reached +43 to +45 mm, so the fingers closed through empty air underneath it.
+    #
+    # Distance to the shaft *axis* cannot catch this: an axis is an infinite line, and
+    # 13.6 mm from it is satisfied on either side of the hand. It needs the signed
+    # projection along the palm normal.
+    palm_normal = forward.cross(shaft_dir)
+    if palm_normal.length < 1e-6:
+        palm_normal = Vector((0.0, 0.0, 1.0))
+    palm_normal.normalize()
+    # Orient it by where the fingers actually curl, not by where the thumb is. The
+    # thumb's *base* sits to the side of the hand rather than on the palm, so testing
+    # against it gave the wrong sign: it said +30.7 mm while a test curl moved the middle
+    # fingertip -23.6 mm along the same vector. With the sign flipped the shaft was
+    # placed on the back of the fingers, and the render showed it lying across their tops
+    # with all four curled underneath.
+    middle_tip = bones.get(f"{side}中指３")
+    if middle_tip is not None:
+        before = world @ middle_tip.tail
+        saved = [
+            (bones[f"{side}{finger}{segment}"], bones[f"{side}{finger}{segment}"].rotation_quaternion.copy())
+            for finger in ("人指", "中指", "薬指", "小指")
+            for segment in ("１", "２", "３")
+            if f"{side}{finger}{segment}" in bones
+        ]
+        from mathutils import Euler as _Euler
+
+        for bone, _ in saved:
+            bone.rotation_mode = "QUATERNION"
+            bone.rotation_quaternion = (
+                bone.rotation_quaternion @ _Euler((math.radians(60.0), 0.0, 0.0), "XYZ").to_quaternion()
+            )
+        bpy.context.view_layer.update()
+        if palm_normal.dot((world @ middle_tip.tail) - before) < 0.0:
+            palm_normal = -palm_normal
+        for bone, original in saved:
+            bone.rotation_quaternion = original
+        bpy.context.view_layer.update()
+
     grip_local, local_dir, length, shaft = _grip_point_and_axis(obj, grip)
+
+    if measured_origin is not None:
+        # Use the measured ring centre and axis outright. Keep the sign of the direction
+        # that points the weapon away from the wrist rather than back through the arm.
+        palm = measured_origin
+        if measured_dir.dot(shaft_dir) < 0.0:
+            measured_dir = -measured_dir
+        shaft_dir = measured_dir
+        palm_normal = measured_normal
+    else:
+        # One shaft radius plus flesh below the knuckle line, so the fingers close over
+        # the shaft rather than past it.
+        palm = palm + palm_normal * (shaft / 2.0 + _SKIN_M)
 
     # Constrain the roll too: the blade's flat is turned across the palm rather than at
     # the camera. Leaving it to rotation_difference rendered a 2 m polearm as a rod.
@@ -1024,6 +1172,7 @@ def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str, grip: 
     obj.matrix_world = placement
     return {
         "grip": grip,
+        "palm_normal": tuple(palm_normal),
         "shaft_mm": round(shaft * 1000, 1),
         "length_m": length,
         "palm": tuple(round(v, 3) for v in palm),
@@ -1057,6 +1206,28 @@ def _distance_to_axis(point: Any, origin: Any, direction: Any) -> float:
     return (offset - direction * offset.dot(direction)).length
 
 
+def _wrap_error(point: Any, origin: Any, direction: Any, normal: Any, radius: float) -> float:
+    """How far a fingertip is from resting on the shaft, counting which side it is on.
+
+    Distance to the axis alone is not enough, and this is the third indicator here that
+    failed by measuring the wrong thing: an axis is an infinite line, so "13.6 mm from
+    the axis" is satisfied by a fingertip curled 30 mm *past* the shaft just as well as
+    by one touching it. Measured on Liuying, the tips sat at +43 mm on the palm normal
+    while the shaft was at +13.6 — they had closed straight through it into the palm.
+
+    So the target is the *far* surface of the shaft, on the side the fingers come from:
+    a tip should reach the shaft and stop. Overshoot is penalised twice, since a finger
+    through the grip looks worse than one a little short of it.
+    """
+    offset = point - origin
+    radial = (offset - direction * offset.dot(direction)).length
+    beyond = offset.dot(normal)
+    error = abs(radial - radius)
+    if beyond < -radius:
+        error += 2.0 * abs(beyond + radius)
+    return error
+
+
 #: Ratio of curl between the three phalanges. Human fingers bend most at the middle
 #: joint, and holding that shape while one number scales it keeps the search
 #: one-dimensional per finger.
@@ -1075,6 +1246,7 @@ def close_hand(
     shaft_m: float = 0.032,
     weapon: Any = None,
     grip: str = "low",
+    palm_normal: Any = None,
 ) -> dict:
     """Close the fingers until each fingertip touches the shaft, one finger at a time.
 
@@ -1132,8 +1304,11 @@ def close_hand(
         bpy.context.scene.frame_set(frame_start)
         bpy.context.view_layer.update()
         origin, direction = _shaft_axis(weapon, grip)
-        target = shaft_m / 2.0 + _SKIN_M
+        radius = shaft_m / 2.0 + _SKIN_M
         world = armature.matrix_world
+        # Without a palm normal the solver can only match distance, which a fingertip
+        # curled past the shaft satisfies too.
+        normal = palm_normal
         for finger in fingers:
             tip = bone_of(finger, "３")
             if tip is None:
@@ -1143,7 +1318,11 @@ def close_hand(
             for base in range(20, 141, 2):
                 pose(finger, float(base))
                 bpy.context.view_layer.update()
-                error = abs(_distance_to_axis(world @ tip.tail, origin, direction) - target)
+                point = world @ tip.tail
+                if normal is None:
+                    error = abs(_distance_to_axis(point, origin, direction) - radius)
+                else:
+                    error = _wrap_error(point, origin, direction, normal, radius)
                 if error < best_error:
                     best, best_error = float(base), error
             solved[finger] = best

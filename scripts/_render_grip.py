@@ -126,6 +126,8 @@ def main() -> None:
             frame_start=1,
             frames=max(frames) + 1,
             shaft_m=fit["shaft_mm"] / 1000.0,
+            weapon=weapon,
+            grip=entry["grip"],
         )
 
         apply_toon_shading(list(actor.mesh_objects) + [weapon])
@@ -148,7 +150,7 @@ def main() -> None:
             gap = grip_gap_cm(weapon, target)
             print(
                 f"GRIP {match} f{frame}: shaft {fit['shaft_mm']:.0f} mm, "
-                f"curl x{curl['curl_scale']}, weapon-to-fist {gap:.2f} cm",
+                f"{curl['mode']} {curl['solved']}, weapon-to-fist {gap:.2f} cm",
                 flush=True,
             )
             for tag, offset in VIEWS:

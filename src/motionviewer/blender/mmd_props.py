@@ -931,9 +931,18 @@ def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str, grip: 
     the hand and the hilt pointed outward. And the weapon was aimed along the *forearm*,
     which for a raised arm points the blade back over the character's own head.
 
-    Now the grip end comes from the table, and the weapon points along the fist axis —
-    wrist to knuckles, continued outward — which is the direction a held blade actually
-    runs.
+    The grip end comes from the table. The *direction* is the one thing left that had to
+    be measured, and the obvious answer was wrong too: pointing the shaft along the fist
+    axis (wrist to middle knuckle) puts it exactly through the wrist and that one
+    knuckle — both 0.0 mm from the axis — while the other three knuckles fan 18, 18 and
+    33 mm off it. Fingers cannot wrap something lying along their own direction, and no
+    amount of curl fixes it: solved per finger against the shaft, only the middle one
+    reached 13 mm, the others stalled at 19-46 mm even at the anatomical limit.
+
+    A real grip runs **across** the palm, perpendicular to the fingers, so the shaft is
+    laid along the knuckle line — index knuckle to little knuckle — which is the axis all
+    four fingers close around. The weapon then points outward along the fist axis, which
+    is what ``local_dir`` already gives.
     """
     from mathutils import Matrix, Vector
 
@@ -949,19 +958,50 @@ def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str, grip: 
     if forward.length < 1e-6:
         forward = Vector((0.0, 0.0, -1.0))
     forward.normalize()
-    palm = wrist + forward * (knuckles - wrist).length * 0.6
+    # The grip sits at the centre of the closed fist, which is the mean of the knuckles
+    # — not a fraction along the wrist-to-middle-knuckle line. Using 0.6 of that line put
+    # the shaft 29 mm off the palm, and since the fingers reach about 13 mm, that alone
+    # made the grip unreachable no matter how they curled.
+    knuckle_names = [f"{side}{finger}１" for finger in ("人指", "中指", "薬指", "小指")]
+    present = [bones[name] for name in knuckle_names if name in bones]
+    if present:
+        palm = Vector((0.0, 0.0, 0.0))
+        for bone in present:
+            palm += world @ bone.head
+        palm /= len(present)
+    else:
+        palm = wrist + forward * (knuckles - wrist).length * 0.6
+
+    # The knuckle line: the axis a closed fist encircles. Falls back to the hand bone's
+    # own X when a rig has no finger bones to measure it from.
+    index_knuckle = bones.get(f"{side}人指１")
+    little_knuckle = bones.get(f"{side}小指１")
+    if index_knuckle is not None and little_knuckle is not None:
+        shaft_dir = (world @ little_knuckle.head) - (world @ index_knuckle.head)
+    else:
+        shaft_dir = (world @ bones[hand_bone].matrix).to_3x3() @ Vector((1.0, 0.0, 0.0))
+    # Keep it square to the fingers, so the shaft crosses the palm instead of skewing
+    # back along them.
+    shaft_dir = shaft_dir - forward * shaft_dir.dot(forward)
+    if shaft_dir.length < 1e-6:
+        shaft_dir = Vector((1.0, 0.0, 0.0))
+    shaft_dir.normalize()
+    # Point the business end away from the body rather than into it: of the two ways the
+    # knuckle line can run, take the one whose far end is further from the wrist.
+    if (palm + shaft_dir).length < (palm - shaft_dir).length:
+        shaft_dir = -shaft_dir
 
     grip_local, local_dir, length, shaft = _grip_point_and_axis(obj, grip)
 
     # Constrain the roll too: the blade's flat is turned across the palm rather than at
     # the camera. Leaving it to rotation_difference rendered a 2 m polearm as a rod.
-    across = (world @ bones[hand_bone].matrix).to_3x3() @ Vector((1.0, 0.0, 0.0))
-    side_vec = across - forward * across.dot(forward)
-    if side_vec.length < 1e-6:
-        side_vec = Vector((0.0, 0.0, 1.0)) - forward * forward.z
-    side_vec.normalize()
-    up = forward.cross(side_vec)
-    target = Matrix((side_vec, up, forward)).transposed()
+    # The weapon's long axis goes along the knuckle line; its flat is turned to face
+    # along the fingers, which is how a blade sits in a fist.
+    up = shaft_dir.cross(forward)
+    if up.length < 1e-6:
+        up = Vector((0.0, 0.0, 1.0))
+    up.normalize()
+    target = Matrix((forward, up, shaft_dir)).transposed()
 
     flat_axis = max(
         (index for index in range(3) if abs(local_dir[index]) < 0.5),
@@ -1003,6 +1043,28 @@ CLOSED_FINGER_DEGREES = {
 REFERENCE_SHAFT_M = 0.032
 
 
+def _shaft_axis(weapon: Any, grip: str) -> tuple[Any, Any]:
+    """A point on the weapon's grip and the unit direction of its shaft, in world space."""
+    grip_local, local_dir, _, _ = _grip_point_and_axis(weapon, grip)
+    matrix = weapon.matrix_world
+    origin = matrix @ grip_local
+    along = (matrix @ (grip_local + local_dir.normalized() * 0.1)) - origin
+    return origin, along.normalized()
+
+
+def _distance_to_axis(point: Any, origin: Any, direction: Any) -> float:
+    offset = point - origin
+    return (offset - direction * offset.dot(direction)).length
+
+
+#: Ratio of curl between the three phalanges. Human fingers bend most at the middle
+#: joint, and holding that shape while one number scales it keeps the search
+#: one-dimensional per finger.
+_PHALANX_RATIO = (1.0, 1.25, 0.85)
+#: Flesh between the bone the rig reports and the surface that touches the shaft.
+_SKIN_M = 0.002
+
+
 def close_hand(
     bpy: Any,
     armature: Any,
@@ -1010,55 +1072,105 @@ def close_hand(
     *,
     frame_start: int = 1,
     frames: int = 1,
-    shaft_m: float = REFERENCE_SHAFT_M,
+    shaft_m: float = 0.032,
+    weapon: Any = None,
+    grip: str = "low",
 ) -> dict:
-    """Curl the fingers of the weapon hand into a fist, on every frame.
+    """Close the fingers until each fingertip touches the shaft, one finger at a time.
 
-    Two things had to be measured rather than assumed, and the first version got both
-    wrong: the render showed a splayed open hand with the sword floating beside it.
+    With ``weapon`` given this solves rather than guesses: for each finger it sweeps the
+    curl and keeps the angle whose fingertip lands one shaft radius plus 2 mm from the
+    shaft axis. Solved on Liuying's 23 mm hilt the four fingers land at 13.5, 13.9, 14.2
+    and 13.8 mm against a 13.6 mm target, and they need visibly different angles to do
+    it — 78, 102, 80 and 102 degrees at the first joint. That spread is why the scaled
+    single angle this replaces could not work: it moved all four together, so whatever
+    closed the middle finger left the little finger 22 mm short.
 
-    **Which way closes.** Turning the phalanges by -42 degrees about local X moves the
-    fingertips 5.67 cm toward the *back* of the hand; +42 moves them 4.93 cm toward the
-    palm and draws the tips from 14.09 cm to 8.90 cm off the wrist. Distance alone
-    cannot tell the two apart — every axis but Y shortens it, because any large rotation
-    folds the chain — so the test is displacement along the palm direction, taken as the
-    thumb's offset from the wrist-to-middle-finger axis.
+    The solve is only possible because the shaft now crosses the palm. While it ran along
+    the fingers instead, the knuckles sat 0, 18, 18 and 33 mm off the axis and no curl
+    reached it at all — at the anatomical limit the fingertips still stopped 25 to 46 mm
+    away. Two of those measurements also showed curling *past* the contact angle carries
+    the tip back out again, so a search has to keep the best value rather than the last.
 
-    **Keying once is not enough.** The retarget bakes ``rotation_quaternion`` on every
-    frame. A lone ``rotation_euler`` key is ignored while the mode is quaternion, and
-    switching the mode drops the bone out of the baked animation entirely. So the curl
-    goes in as quaternion keys across the range, composed onto what is already there.
+    Without ``weapon`` it falls back to scaling a fixed pose by shaft width, which is what
+    the non-weapon props use.
 
-    The thumb is left alone: it wraps the other way, and the same curl sends it through
-    the grip.
+    The thumb is left alone throughout: it wraps the opposite way, and the same curl
+    drives it through the grip.
     """
     from mathutils import Euler
 
-    # Thinner grip, tighter fist. Clamped so a very thin hilt does not fold the fingers
-    # through the palm and a thick pole does not leave them straight.
-    scale = min(1.35, max(0.75, REFERENCE_SHAFT_M / max(shaft_m, 1e-4)))
     side = "右" if hand_bone.startswith("右") else "左"
+    fingers = ("人指", "中指", "薬指", "小指")
+    segments = ("１", "２", "３")
+
+    def bone_of(finger: str, segment: str):
+        return armature.pose.bones.get(f"{side}{finger}{segment}")
+
+    # Whatever the retarget left on these bones is the pose the curl composes onto.
+    rest = {}
+    for finger in fingers:
+        for segment in segments:
+            bone = bone_of(finger, segment)
+            if bone is not None:
+                bone.rotation_mode = "QUATERNION"
+                rest[(finger, segment)] = bone.rotation_quaternion.copy()
+
+    def pose(finger: str, base: float) -> None:
+        for segment, ratio in zip(segments, _PHALANX_RATIO):
+            bone = bone_of(finger, segment)
+            if bone is None:
+                continue
+            curl = Euler((math.radians(base * ratio), 0.0, 0.0), "XYZ").to_quaternion()
+            bone.rotation_quaternion = rest[(finger, segment)] @ curl
+
+    solved: dict[str, float] = {}
+    scale = min(1.35, max(0.75, 0.032 / max(shaft_m, 1e-4)))
+    fallback = {"人指": 46.0 * scale, "中指": 46.0 * scale, "薬指": 46.0 * scale, "小指": 46.0 * scale}
+
+    if weapon is not None:
+        bpy.context.scene.frame_set(frame_start)
+        bpy.context.view_layer.update()
+        origin, direction = _shaft_axis(weapon, grip)
+        target = shaft_m / 2.0 + _SKIN_M
+        world = armature.matrix_world
+        for finger in fingers:
+            tip = bone_of(finger, "３")
+            if tip is None:
+                solved[finger] = fallback[finger]
+                continue
+            best, best_error = fallback[finger], float("inf")
+            for base in range(20, 141, 2):
+                pose(finger, float(base))
+                bpy.context.view_layer.update()
+                error = abs(_distance_to_axis(world @ tip.tail, origin, direction) - target)
+                if error < best_error:
+                    best, best_error = float(base), error
+            solved[finger] = best
+            pose(finger, best)
+    else:
+        solved = dict(fallback)
+
     keys = 0
     for offset in range(max(1, frames)):
         frame = frame_start + offset
         bpy.context.scene.frame_set(frame)
-        for finger in ("人指", "中指", "薬指", "小指"):
-            for segment, degrees in CLOSED_FINGER_DEGREES.items():
-                bone = armature.pose.bones.get(f"{side}{finger}{segment}")
+        for finger in fingers:
+            for segment, ratio in zip(segments, _PHALANX_RATIO):
+                bone = bone_of(finger, segment)
                 if bone is None:
                     continue
-                bone.rotation_mode = "QUATERNION"
-                curl = Euler((math.radians(degrees * scale), 0.0, 0.0), "XYZ").to_quaternion()
-                bone.rotation_quaternion = bone.rotation_quaternion @ curl
+                curl = Euler((math.radians(solved[finger] * ratio), 0.0, 0.0), "XYZ").to_quaternion()
+                bone.rotation_quaternion = rest[(finger, segment)] @ curl
                 bone.keyframe_insert("rotation_quaternion", frame=frame)
                 keys += 1
     bpy.context.scene.frame_set(frame_start)
-    return {"bones": 4 * len(CLOSED_FINGER_DEGREES), "keys": keys, "curl_scale": round(scale, 3)}
-
-
-def _span(obj: Any, axis: int) -> float:
-    values = [v.co[axis] for v in obj.data.vertices]
-    return (max(values) - min(values)) if values else 0.0
+    return {
+        "bones": len(fingers) * len(segments),
+        "keys": keys,
+        "solved": {k: round(v, 1) for k, v in solved.items()},
+        "mode": "solved" if weapon is not None else "scaled",
+    }
 
 
 def _long_axis_and_handle(obj: Any) -> tuple[int, bool, float, float]:

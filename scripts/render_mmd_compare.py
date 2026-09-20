@@ -735,11 +735,13 @@ def main() -> None:
                 frame_start=frame_start,
                 frames=total,
                 shaft_m=fit["shaft_mm"] / 1000.0,
+                weapon=weapon,
+                grip=grip,
             )
             print(
                 f"weapon: {weapon_path.name} on {hand}, grip={fit['grip']}, "
                 f"{fit['length_m']:.2f} m, shaft {fit['shaft_mm']:.0f} mm, "
-                f"curl x{fingers['curl_scale']}, {fingers['keys']} keys"
+                f"{fingers['mode']} {fingers['solved']}, {fingers['keys']} keys"
             )
             print(f"  palm {fit['palm']}  tip {fit['tip']}")
             # A 1.2-2.3 m weapon raised overhead reaches far outside a hull built from

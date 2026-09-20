@@ -1,0 +1,763 @@
+{
+  "asset": "assets/fbx/pmx/silverwolf/星穹铁道——银狼/银狼.pmx",
+  "meshes": [
+    {
+      "name": "morph_银狼_mesh",
+      "shape_keys": [
+        {
+          "name": "Basis",
+          "value": 1.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "真面目",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "困る",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "にこり",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "怒り",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "上",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "下",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "まばたき",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "笑い",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "笑い1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ウィンク",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ウィンク右",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ウィンク２",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ｳｨﾝｸ２右",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "瞳小",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "瞳縦潰れ",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "恐ろしい子！",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "はぅ",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "なごみ",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "はちゅ目",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ｷﾘｯ",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ｷﾘｯ1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ｷﾘｯ2",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ｷﾘｯ3",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ｷﾘｯ4",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ｷﾘｯ5",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "びっくり",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "びっくり1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "じと目",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "じと目1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "あ",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "い",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "い1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "え",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "う",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "お",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "お1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "あ２",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "にやり２",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "にやり3",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ワ",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ワ1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "ワ2",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "□",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口下",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口上",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "□1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "□2",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "□3",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "□4",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "□5",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "□6",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "□7",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口角下げ",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口角下げ1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口角下げ2",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口角下げ3",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口角下げ4",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口角下げ5",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口角下げ6",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口角上げ",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口角上げ1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口横缩げ",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口横缩げ1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口横広げ",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "口横広げ1",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        },
+        {
+          "name": "照れ",
+          "value": 0.0,
+          "min": 0.0,
+          "max": 1.0,
+          "mute": false
+        }
+      ]
+    }
+  ],
+  "mmd_root_morphs": {
+    "vertex_morphs": [
+      {
+        "name": "真面目",
+        "category": "EYEBROW"
+      },
+      {
+        "name": "困る",
+        "category": "EYEBROW"
+      },
+      {
+        "name": "にこり",
+        "category": "EYEBROW"
+      },
+      {
+        "name": "怒り",
+        "category": "EYEBROW"
+      },
+      {
+        "name": "上",
+        "category": "EYEBROW"
+      },
+      {
+        "name": "下",
+        "category": "EYEBROW"
+      },
+      {
+        "name": "まばたき",
+        "category": "EYE"
+      },
+      {
+        "name": "笑い",
+        "category": "EYE"
+      },
+      {
+        "name": "笑い1",
+        "category": "EYE"
+      },
+      {
+        "name": "ウィンク",
+        "category": "EYE"
+      },
+      {
+        "name": "ウィンク右",
+        "category": "EYE"
+      },
+      {
+        "name": "ウィンク２",
+        "category": "EYE"
+      },
+      {
+        "name": "ｳｨﾝｸ２右",
+        "category": "EYE"
+      },
+      {
+        "name": "瞳小",
+        "category": "EYE"
+      },
+      {
+        "name": "瞳縦潰れ",
+        "category": "EYE"
+      },
+      {
+        "name": "恐ろしい子！",
+        "category": "EYE"
+      },
+      {
+        "name": "はぅ",
+        "category": "EYE"
+      },
+      {
+        "name": "なごみ",
+        "category": "EYE"
+      },
+      {
+        "name": "はちゅ目",
+        "category": "EYE"
+      },
+      {
+        "name": "ｷﾘｯ",
+        "category": "EYE"
+      },
+      {
+        "name": "ｷﾘｯ1",
+        "category": "EYE"
+      },
+      {
+        "name": "ｷﾘｯ2",
+        "category": "EYE"
+      },
+      {
+        "name": "ｷﾘｯ3",
+        "category": "EYE"
+      },
+      {
+        "name": "ｷﾘｯ4",
+        "category": "EYE"
+      },
+      {
+        "name": "ｷﾘｯ5",
+        "category": "EYE"
+      },
+      {
+        "name": "びっくり",
+        "category": "EYE"
+      },
+      {
+        "name": "びっくり1",
+        "category": "EYE"
+      },
+      {
+        "name": "じと目",
+        "category": "EYE"
+      },
+      {
+        "name": "じと目1",
+        "category": "EYE"
+      },
+      {
+        "name": "あ",
+        "category": "MOUTH"
+      },
+      {
+        "name": "い",
+        "category": "MOUTH"
+      },
+      {
+        "name": "い1",
+        "category": "MOUTH"
+      },
+      {
+        "name": "え",
+        "category": "MOUTH"
+      },
+      {
+        "name": "う",
+        "category": "MOUTH"
+      },
+      {
+        "name": "お",
+        "category": "MOUTH"
+      },
+      {
+        "name": "お1",
+        "category": "MOUTH"
+      },
+      {
+        "name": "あ２",
+        "category": "MOUTH"
+      },
+      {
+        "name": "にやり２",
+        "category": "MOUTH"
+      },
+      {
+        "name": "にやり3",
+        "category": "MOUTH"
+      },
+      {
+        "name": "ワ",
+        "category": "MOUTH"
+      },
+      {
+        "name": "ワ1",
+        "category": "MOUTH"
+      },
+      {
+        "name": "ワ2",
+        "category": "MOUTH"
+      },
+      {
+        "name": "□",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口下",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口上",
+        "category": "MOUTH"
+      },
+      {
+        "name": "□1",
+        "category": "MOUTH"
+      },
+      {
+        "name": "□2",
+        "category": "MOUTH"
+      },
+      {
+        "name": "□3",
+        "category": "MOUTH"
+      },
+      {
+        "name": "□4",
+        "category": "MOUTH"
+      },
+      {
+        "name": "□5",
+        "category": "MOUTH"
+      },
+      {
+        "name": "□6",
+        "category": "MOUTH"
+      },
+      {
+        "name": "□7",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口角下げ",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口角下げ1",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口角下げ2",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口角下げ3",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口角下げ4",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口角下げ5",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口角下げ6",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口角上げ",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口角上げ1",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口横缩げ",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口横缩げ1",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口横広げ",
+        "category": "MOUTH"
+      },
+      {
+        "name": "口横広げ1",
+        "category": "MOUTH"
+      },
+      {
+        "name": "照れ",
+        "category": "OTHER"
+      }
+    ],
+    "bone_morphs": [
+      {
+        "name": "墨镜",
+        "category": "OTHER"
+      }
+    ],
+    "material_morphs": [
+      {
+        "name": "腰带消失",
+        "category": "OTHER"
+      },
+      {
+        "name": "墨镜消失",
+        "category": "OTHER"
+      }
+    ]
+  }
+}

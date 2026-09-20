@@ -1,0 +1,154 @@
+[
+ {
+  "name": "furina",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/furina/【芙宁娜_荒】.pmx",
+  "tested": 268,
+  "bind_share": 0.11940298507462686,
+  "standing_share": 0.23507462686567165,
+  "rise": 0.11567164179104479
+ },
+ {
+  "name": "furina",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/furina/【芙宁娜】.pmx",
+  "tested": 268,
+  "bind_share": 0.10820895522388059,
+  "standing_share": 0.1455223880597015,
+  "rise": 0.037313432835820906
+ },
+ {
+  "name": "星穹铁道——银狼",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/silverwolf/星穹铁道——银狼/银狼.pmx",
+  "tested": 550,
+  "bind_share": 0.05090909090909091,
+  "standing_share": 0.06909090909090909,
+  "rise": 0.01818181818181818
+ },
+ {
+  "name": "yoimiya",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/yoimiya/宵宫.pmx",
+  "tested": 341,
+  "bind_share": 0.026392961876832845,
+  "standing_share": 0.16715542521994134,
+  "rise": 0.1407624633431085
+ },
+ {
+  "name": "今汐1.04",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/今汐1.04/鸣潮_今汐1.023请标明辫子软化版本.pmx",
+  "tested": 410,
+  "bind_share": 0.03414634146341464,
+  "standing_share": 0.03902439024390244,
+  "rise": 0.004878048780487802
+ },
+ {
+  "name": "奥黛塔",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/奥黛塔/奥黛塔.pmx",
+  "tested": 416,
+  "bind_share": 0.07211538461538461,
+  "standing_share": 0.125,
+  "rise": 0.05288461538461539
+ },
+ {
+  "name": "妮露",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/妮露/妮露.pmx",
+  "tested": 624,
+  "bind_share": 0.04807692307692308,
+  "standing_share": 0.10576923076923077,
+  "rise": 0.05769230769230769
+ },
+ {
+  "name": "明日方舟：终末地洛茜",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/明日方舟：终末地洛茜/洛茜.pmx",
+  "tested": 795,
+  "bind_share": 0.033962264150943396,
+  "standing_share": 0.48553459119496856,
+  "rise": 0.45157232704402517
+ },
+ {
+  "name": "明日方舟：终末地陈千语",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/明日方舟：终末地陈千语/陈千语.pmx",
+  "tested": 709,
+  "bind_share": 0.021156558533145273,
+  "standing_share": 0.028208744710860368,
+  "rise": 0.007052186177715095
+ },
+ {
+  "name": "星穹铁道—三月七",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/星穹铁道—三月七/星穹铁道—三月七/三月七 1.0.pmx",
+  "tested": 432,
+  "bind_share": 0.020833333333333332,
+  "standing_share": 0.07175925925925926,
+  "rise": 0.05092592592592593
+ },
+ {
+  "name": "星穹铁道—彦卿",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/星穹铁道—彦卿/星穹铁道—彦卿/彦卿1.0.pmx",
+  "tested": 405,
+  "bind_share": 0.02962962962962963,
+  "standing_share": 0.25925925925925924,
+  "rise": 0.22962962962962963
+ },
+ {
+  "name": "星穹铁道—流萤·春日手信",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/星穹铁道—流萤·春日手信/星穹铁道—流萤·春日手信/星穹铁道—流萤·春日手信.pmx",
+  "tested": 426,
+  "bind_share": 0.025821596244131457,
+  "standing_share": 0.07511737089201878,
+  "rise": 0.04929577464788733
+ },
+ {
+  "name": "萨姆·春日手信",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/星穹铁道—流萤·春日手信/萨姆·春日手信/萨姆·春日手信(修）.pmx",
+  "tested": 646,
+  "bind_share": 0.032507739938080496,
+  "standing_share": 0.02321981424148607,
+  "rise": -0.009287925696594427
+ },
+ {
+  "name": "星穹铁道—火花·甜梦电波",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/星穹铁道—火花·甜梦电波/星穹铁道—火花（皮肤）（修2）.pmx",
+  "tested": 476,
+  "bind_share": 0.07142857142857142,
+  "standing_share": 0.018907563025210083,
+  "rise": -0.05252100840336134
+ },
+ {
+  "name": "星穹铁道—知更鸟",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/星穹铁道—知更鸟/星穹铁道—知更鸟（改）.pmx",
+  "tested": 325,
+  "bind_share": 0.07076923076923076,
+  "standing_share": 0.35384615384615387,
+  "rise": 0.2830769230769231
+ },
+ {
+  "name": "星穹铁道—花火",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/星穹铁道—花火/星穹铁道—花火/花火3.0.pmx",
+  "tested": 491,
+  "bind_share": 0.028513238289205704,
+  "standing_share": 0.006109979633401222,
+  "rise": -0.022403258655804482
+ },
+ {
+  "name": "星穹铁道—飞霄无外套",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/星穹铁道—飞霄无外套/星穹铁道—飞霄（无外套）.pmx",
+  "tested": 336,
+  "bind_share": 0.08035714285714286,
+  "standing_share": 0.03869047619047619,
+  "rise": -0.04166666666666667
+ },
+ {
+  "name": "耀嘉音",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/耀嘉音/耀嘉音.pmx",
+  "tested": 798,
+  "bind_share": 0.14786967418546365,
+  "standing_share": 0.05263157894736842,
+  "rise": -0.09523809523809523
+ },
+ {
+  "name": "青衣",
+  "path": "/Users/a26044/projects/MotionViewer/assets/fbx/pmx/青衣/青衣.pmx",
+  "tested": 485,
+  "bind_share": 0.004123711340206186,
+  "standing_share": 0.006185567010309278,
+  "rise": 0.0020618556701030924
+ }
+]

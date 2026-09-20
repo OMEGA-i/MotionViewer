@@ -1,0 +1,1901 @@
+{
+  "clips": [
+    {
+      "motion": ".local/soma/soma_tmr_test_400m_all_fullpose/clips/t2m/test_rec_01KWG1ZB3WB9PAY5A1TRZ396ST/gt/smplx_params.npz",
+      "frames_checked": 110,
+      "channels": 34,
+      "driven": 20,
+      "root_translation_scale": 0.9261703081685989,
+      "polish": {
+        "hand_relax": 1.0,
+        "twist_smoothed_sources": [
+          "left_shoulder",
+          "left_elbow",
+          "left_wrist",
+          "right_shoulder",
+          "right_elbow",
+          "right_wrist"
+        ],
+        "twist_smoothing_window": 5
+      },
+      "worst": {
+        "blender_vs_solver_deg": {
+          "value": 0.049128665544761044,
+          "bone": "右ひざ",
+          "frame": 43
+        },
+        "relative_transfer_deg": {
+          "value": 0.04912866545573812,
+          "bone": "右ひざ",
+          "frame": 43
+        },
+        "solver_vs_theory_deg": {
+          "value": 3.6222548091772e-06,
+          "bone": "左ひざ",
+          "frame": 59
+        },
+        "absolute_aim_deg": {
+          "value": 0.03598556600713206,
+          "bone": "右手首",
+          "frame": 6
+        }
+      },
+      "arm_angles": [
+        {
+          "frame": 1,
+          "side": "L",
+          "upper_drop_deg": 55.65691816281296,
+          "source_upper_drop_deg": 55.65692158487076,
+          "elbow_bend_deg": 31.86016919959338
+        },
+        {
+          "frame": 1,
+          "side": "R",
+          "upper_drop_deg": 40.96031411412863,
+          "source_upper_drop_deg": 40.960308781978746,
+          "elbow_bend_deg": 10.779902985205004
+        },
+        {
+          "frame": 14,
+          "side": "L",
+          "upper_drop_deg": 63.959020368256425,
+          "source_upper_drop_deg": 63.959004918734,
+          "elbow_bend_deg": 26.01761713212649
+        },
+        {
+          "frame": 14,
+          "side": "R",
+          "upper_drop_deg": 50.15908396231116,
+          "source_upper_drop_deg": 50.15907572443312,
+          "elbow_bend_deg": 13.000244668259137
+        },
+        {
+          "frame": 28,
+          "side": "L",
+          "upper_drop_deg": 67.59656892291653,
+          "source_upper_drop_deg": 67.59656778179911,
+          "elbow_bend_deg": 27.51650252387412
+        },
+        {
+          "frame": 28,
+          "side": "R",
+          "upper_drop_deg": 49.59887835776383,
+          "source_upper_drop_deg": 49.59886802702782,
+          "elbow_bend_deg": 10.810058987771813
+        },
+        {
+          "frame": 40,
+          "side": "L",
+          "upper_drop_deg": 61.54787378339529,
+          "source_upper_drop_deg": 61.54785806567108,
+          "elbow_bend_deg": 26.35742692853779
+        },
+        {
+          "frame": 40,
+          "side": "R",
+          "upper_drop_deg": 54.01205392636842,
+          "source_upper_drop_deg": 54.01204616685722,
+          "elbow_bend_deg": 11.42076384077002
+        }
+      ],
+      "per_bone": {
+        "全ての親": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782341066293847
+        },
+        "センター": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "センター2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "グルーブ": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "グルーブ2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "腰": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.028035603156885733,
+          "transfer_deg": 0.028035603104885457,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "上半身": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.03260913587858234,
+          "transfer_deg": 0.032609135811521736,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "下半身": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.029759510141633756
+        },
+        "上半身3": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.03297754421554264,
+          "transfer_deg": 0.03297754412712739,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "右足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.03759645556320429,
+          "transfer_deg": 0.037596455466263036,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "左足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.03990087696665605,
+          "transfer_deg": 0.03990087691185052,
+          "solver_vs_theory_deg": 3.1945284701301985e-06
+        },
+        "上半身2": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.03186609001063608,
+          "transfer_deg": 0.03186609001063608,
+          "solver_vs_theory_deg": 2.091309789151873e-06
+        },
+        "右ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.049128665544761044,
+          "transfer_deg": 0.04912866545573812,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "左ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.028990400913828675,
+          "transfer_deg": 0.028990400863541037,
+          "solver_vs_theory_deg": 3.6222548091772e-06
+        },
+        "右肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.029402030853485705
+        },
+        "右足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.03242325527198628,
+          "transfer_deg": 0.03242325520454122,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "左肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.029402030853485705
+        },
+        "左足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.035303979669983665,
+          "transfer_deg": 0.0353039795667475,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.030000124668430314,
+          "transfer_deg": 0.03000012471702541,
+          "solver_vs_theory_deg": 1.7075472925031877e-06
+        },
+        "右肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.03191477023142551,
+          "transfer_deg": 0.03191477027710527,
+          "solver_vs_theory_deg": 1.7075472925031877e-06
+        },
+        "左肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.01863621801244722,
+          "transfer_deg": 0.018636218090674405,
+          "solver_vs_theory_deg": 0.0
+        },
+        "頭": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02812224107379393,
+          "transfer_deg": 0.02812224107379393,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "右肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.03116527999441099
+        },
+        "左肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.03482272177971355
+        },
+        "右腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.04200596208016024,
+          "aim_deg": 0.031586623842832735
+        },
+        "左腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.04285405937144655,
+          "aim_deg": 0.034544099153752846
+        },
+        "右腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.04620181803476882
+        },
+        "左腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.03741659331722277
+        },
+        "右ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.03814052602357886,
+          "aim_deg": 0.0340083885487131
+        },
+        "左ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.03323037774630632,
+          "aim_deg": 0.02838360153577433
+        },
+        "右手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.04629508183727082
+        },
+        "左手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.031293243402920244
+        },
+        "右手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.03757302661691817,
+          "aim_deg": 0.03598556600713206
+        },
+        "左手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.036422301894319366,
+          "aim_deg": 0.027115359164310227
+        }
+      }
+    },
+    {
+      "motion": ".local/soma/soma_tmr_test_400m_all_fullpose/clips/t2m/test_rec_01KWVNCQKCYD21V3R191E7Z1JZ/gt/smplx_params.npz",
+      "frames_checked": 64,
+      "channels": 34,
+      "driven": 20,
+      "root_translation_scale": 0.9236209969497975,
+      "polish": {
+        "hand_relax": 1.0,
+        "twist_smoothed_sources": [
+          "left_shoulder",
+          "left_elbow",
+          "left_wrist",
+          "right_shoulder",
+          "right_elbow",
+          "right_wrist"
+        ],
+        "twist_smoothing_window": 5
+      },
+      "worst": {
+        "blender_vs_solver_deg": {
+          "value": 0.04805130789026194,
+          "bone": "左ひじ",
+          "frame": 43
+        },
+        "relative_transfer_deg": {
+          "value": 0.03849891746383025,
+          "bone": "右肩",
+          "frame": 51
+        },
+        "solver_vs_theory_deg": {
+          "value": 3.4150945850063763e-06,
+          "bone": "左ひざ",
+          "frame": 12
+        },
+        "absolute_aim_deg": {
+          "value": 0.0415712071713625,
+          "bone": "右ひじ",
+          "frame": 37
+        }
+      },
+      "arm_angles": [
+        {
+          "frame": 1,
+          "side": "L",
+          "upper_drop_deg": 66.58785383180663,
+          "source_upper_drop_deg": 66.58784114489461,
+          "elbow_bend_deg": 64.40940449401452
+        },
+        {
+          "frame": 1,
+          "side": "R",
+          "upper_drop_deg": 47.33845777890294,
+          "source_upper_drop_deg": 47.3384434214359,
+          "elbow_bend_deg": 63.06273797877001
+        },
+        {
+          "frame": 14,
+          "side": "L",
+          "upper_drop_deg": 39.56417729360315,
+          "source_upper_drop_deg": 39.5641727731868,
+          "elbow_bend_deg": 45.789219899485325
+        },
+        {
+          "frame": 14,
+          "side": "R",
+          "upper_drop_deg": 29.740529401227228,
+          "source_upper_drop_deg": 29.74052755749525,
+          "elbow_bend_deg": 55.80786127911519
+        },
+        {
+          "frame": 28,
+          "side": "L",
+          "upper_drop_deg": 39.01225740898174,
+          "source_upper_drop_deg": 39.01224207397584,
+          "elbow_bend_deg": 46.85767476988994
+        },
+        {
+          "frame": 28,
+          "side": "R",
+          "upper_drop_deg": 25.282496793754703,
+          "source_upper_drop_deg": 25.282480219817117,
+          "elbow_bend_deg": 58.550320492644154
+        },
+        {
+          "frame": 40,
+          "side": "L",
+          "upper_drop_deg": -14.226181927880337,
+          "source_upper_drop_deg": -14.226188555918261,
+          "elbow_bend_deg": 65.64209776359297
+        },
+        {
+          "frame": 40,
+          "side": "R",
+          "upper_drop_deg": -40.58419595177285,
+          "source_upper_drop_deg": -40.58419211871046,
+          "elbow_bend_deg": 79.97535388565349
+        }
+      ],
+      "per_bone": {
+        "全ての親": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782341066293847
+        },
+        "センター": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "センター2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "グルーブ": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "グルーブ2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "腰": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.020860425474559883,
+          "transfer_deg": 0.020860425404673536,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "上半身": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02451946570506155,
+          "transfer_deg": 0.024519465586147142,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "下半身": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.020054187232441685
+        },
+        "上半身3": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02018872067888007,
+          "transfer_deg": 0.02018872053445696,
+          "solver_vs_theory_deg": 2.091309789151873e-06
+        },
+        "右足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02499008229162629,
+          "transfer_deg": 0.024990082116613792,
+          "solver_vs_theory_deg": 3.1945284701301985e-06
+        },
+        "左足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02234024505320476,
+          "transfer_deg": 0.022340244857433553,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "上半身2": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.019950999874858502,
+          "transfer_deg": 0.01995099980178653,
+          "solver_vs_theory_deg": 2.091309789151873e-06
+        },
+        "右ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02536460057408558,
+          "transfer_deg": 0.025364600401657205,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "左ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.017459228793718258,
+          "transfer_deg": 0.017459228626716734,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "右肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.026475951963901973
+        },
+        "右足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.024029846018597593,
+          "transfer_deg": 0.024029845897260243,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "左肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.026475951963901973
+        },
+        "左足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.026164222099501724,
+          "transfer_deg": 0.026164221932343044,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.027482105110395852,
+          "transfer_deg": 0.027482105057348282,
+          "solver_vs_theory_deg": 2.091309789151873e-06
+        },
+        "右肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.03849891742596272,
+          "transfer_deg": 0.03849891746383025,
+          "solver_vs_theory_deg": 1.7075472925031877e-06
+        },
+        "左肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.025414609444470385,
+          "transfer_deg": 0.025414609530514925,
+          "solver_vs_theory_deg": 0.0
+        },
+        "頭": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02664650120497151,
+          "transfer_deg": 0.02664650120497151,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "右肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.02708951659550664
+        },
+        "左肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.02954719445928635
+        },
+        "右腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.03388875907779097,
+          "aim_deg": 0.03054666611840715
+        },
+        "左腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.040154466839775534,
+          "aim_deg": 0.028209654490827706
+        },
+        "右腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.03991942936575751
+        },
+        "左腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.04114359813237786
+        },
+        "右ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.041035104905436784,
+          "aim_deg": 0.0415712071713625
+        },
+        "左ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.04805130789026194,
+          "aim_deg": 0.04053770476503357
+        },
+        "右手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.02835254524565711
+        },
+        "左手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.02622758190623094
+        },
+        "右手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.025476522897132266,
+          "aim_deg": 0.023211067220151045
+        },
+        "左手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.027634800285209617,
+          "aim_deg": 0.02673766595832165
+        }
+      }
+    },
+    {
+      "motion": ".local/soma/soma_tmr_test_400m_all_fullpose/clips/t2m/test_rec_01KWZ5F7B7K1HF0MFSNNNMAH5S/gt/smplx_params.npz",
+      "frames_checked": 52,
+      "channels": 34,
+      "driven": 20,
+      "root_translation_scale": 0.9242598177850582,
+      "polish": {
+        "hand_relax": 1.0,
+        "twist_smoothed_sources": [
+          "left_shoulder",
+          "left_elbow",
+          "left_wrist",
+          "right_shoulder",
+          "right_elbow",
+          "right_wrist"
+        ],
+        "twist_smoothing_window": 5
+      },
+      "worst": {
+        "blender_vs_solver_deg": {
+          "value": 0.044970735593767096,
+          "bone": "左手首",
+          "frame": 39
+        },
+        "relative_transfer_deg": {
+          "value": 0.032775151135157644,
+          "bone": "左足首",
+          "frame": 27
+        },
+        "solver_vs_theory_deg": {
+          "value": 3.4150945850063763e-06,
+          "bone": "左足首",
+          "frame": 11
+        },
+        "absolute_aim_deg": {
+          "value": 0.037549913722475466,
+          "bone": "右手首",
+          "frame": 39
+        }
+      },
+      "arm_angles": [
+        {
+          "frame": 1,
+          "side": "L",
+          "upper_drop_deg": 52.2781773344712,
+          "source_upper_drop_deg": 52.278173977164016,
+          "elbow_bend_deg": 67.30118110182326
+        },
+        {
+          "frame": 1,
+          "side": "R",
+          "upper_drop_deg": 44.06211712542976,
+          "source_upper_drop_deg": 44.06211859477231,
+          "elbow_bend_deg": 66.19430228981021
+        },
+        {
+          "frame": 14,
+          "side": "L",
+          "upper_drop_deg": 54.59952952870497,
+          "source_upper_drop_deg": 54.599521223579,
+          "elbow_bend_deg": 67.152603468129
+        },
+        {
+          "frame": 14,
+          "side": "R",
+          "upper_drop_deg": 44.436277707130415,
+          "source_upper_drop_deg": 44.43627837782898,
+          "elbow_bend_deg": 61.744266716815744
+        },
+        {
+          "frame": 28,
+          "side": "L",
+          "upper_drop_deg": 58.20757481440125,
+          "source_upper_drop_deg": 58.207567102564084,
+          "elbow_bend_deg": 57.37013010237934
+        },
+        {
+          "frame": 28,
+          "side": "R",
+          "upper_drop_deg": 48.11260791104968,
+          "source_upper_drop_deg": 48.112615313420235,
+          "elbow_bend_deg": 49.74797017045017
+        },
+        {
+          "frame": 40,
+          "side": "L",
+          "upper_drop_deg": 67.84907923810887,
+          "source_upper_drop_deg": 67.8490676900822,
+          "elbow_bend_deg": 41.476334381592395
+        },
+        {
+          "frame": 40,
+          "side": "R",
+          "upper_drop_deg": 60.58126850855293,
+          "source_upper_drop_deg": 60.581269981657165,
+          "elbow_bend_deg": 37.27106922163312
+        }
+      ],
+      "per_bone": {
+        "全ての親": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782341066293847
+        },
+        "センター": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "センター2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "グルーブ": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "グルーブ2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "腰": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.027811167322124686,
+          "transfer_deg": 0.027811167243494816,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "上半身": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02005019920665693,
+          "transfer_deg": 0.02005019909759126,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "下半身": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978367143673978
+        },
+        "上半身3": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.028908627629577903,
+          "transfer_deg": 0.028908627553933062,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "右足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.0229808529505552,
+          "transfer_deg": 0.02298085276024126,
+          "solver_vs_theory_deg": 3.1945284701301985e-06
+        },
+        "左足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.022336749121624238,
+          "transfer_deg": 0.02233674895845603,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "上半身2": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.01649990381493494,
+          "transfer_deg": 0.016499903726579338,
+          "solver_vs_theory_deg": 1.7075472925031877e-06
+        },
+        "右ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02590328325580541,
+          "transfer_deg": 0.02590328305882242,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "左ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02852888765458348,
+          "transfer_deg": 0.028528887526830606,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "右肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.028375341529759426
+        },
+        "右足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.025503237872665646,
+          "transfer_deg": 0.025503237758338286,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "左肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.028375341529759426
+        },
+        "左足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.0327751512685995,
+          "transfer_deg": 0.032775151135157644,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.028447839500286173,
+          "transfer_deg": 0.028447839525909548,
+          "solver_vs_theory_deg": 1.7075472925031877e-06
+        },
+        "右肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.025354674401945415,
+          "transfer_deg": 0.025354674516942666,
+          "solver_vs_theory_deg": 2.091309789151873e-06
+        },
+        "左肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.022996130811336397,
+          "transfer_deg": 0.022996130843034313,
+          "solver_vs_theory_deg": 0.0
+        },
+        "頭": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.020443085549313282,
+          "transfer_deg": 0.020443085513656756,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "右肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.026580363619287006
+        },
+        "左肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.02870750324260277
+        },
+        "右腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.024218276013330074,
+          "aim_deg": 0.01633429171511202
+        },
+        "左腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.02487506154502617,
+          "aim_deg": 0.021404142284106392
+        },
+        "右腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.024963462129742677
+        },
+        "左腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.028293357785515737
+        },
+        "右ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.02932027359854323,
+          "aim_deg": 0.0241566538773955
+        },
+        "左ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.04396617904823281,
+          "aim_deg": 0.03601632159085431
+        },
+        "右手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.029428904741072973
+        },
+        "左手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.03821019788555469
+        },
+        "右手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.04030513721805486,
+          "aim_deg": 0.037549913722475466
+        },
+        "左手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.044970735593767096,
+          "aim_deg": 0.03581075917038074
+        }
+      }
+    },
+    {
+      "motion": ".local/soma/soma_tmr_test_400m_all_fullpose/clips/t2m/test_rec_01KX2B315M4KMZHPQ6TNP46P71/gt/smplx_params.npz",
+      "frames_checked": 136,
+      "channels": 34,
+      "driven": 20,
+      "root_translation_scale": 0.9240751478559058,
+      "polish": {
+        "hand_relax": 1.0,
+        "twist_smoothed_sources": [
+          "left_shoulder",
+          "left_elbow",
+          "left_wrist",
+          "right_shoulder",
+          "right_elbow",
+          "right_wrist"
+        ],
+        "twist_smoothing_window": 5
+      },
+      "worst": {
+        "blender_vs_solver_deg": {
+          "value": 0.05135204859367387,
+          "bone": "左ひじ",
+          "frame": 135
+        },
+        "relative_transfer_deg": {
+          "value": 0.029766705560271927,
+          "bone": "上半身",
+          "frame": 55
+        },
+        "solver_vs_theory_deg": {
+          "value": 3.4150945850063763e-06,
+          "bone": "左足首",
+          "frame": 4
+        },
+        "absolute_aim_deg": {
+          "value": 0.042953317129382315,
+          "bone": "左ひじ",
+          "frame": 135
+        }
+      },
+      "arm_angles": [
+        {
+          "frame": 1,
+          "side": "L",
+          "upper_drop_deg": 82.7803723576902,
+          "source_upper_drop_deg": 82.78037093472174,
+          "elbow_bend_deg": 18.004677962253805
+        },
+        {
+          "frame": 1,
+          "side": "R",
+          "upper_drop_deg": 79.08281448188444,
+          "source_upper_drop_deg": 79.08279811893586,
+          "elbow_bend_deg": 23.47125514108687
+        },
+        {
+          "frame": 14,
+          "side": "L",
+          "upper_drop_deg": 83.05897637014307,
+          "source_upper_drop_deg": 83.05897481822429,
+          "elbow_bend_deg": 18.012062117056104
+        },
+        {
+          "frame": 14,
+          "side": "R",
+          "upper_drop_deg": 78.84432407495977,
+          "source_upper_drop_deg": 78.84431885785614,
+          "elbow_bend_deg": 23.575583680617076
+        },
+        {
+          "frame": 28,
+          "side": "L",
+          "upper_drop_deg": 83.34243615414579,
+          "source_upper_drop_deg": 83.34242175880915,
+          "elbow_bend_deg": 18.120519119978674
+        },
+        {
+          "frame": 28,
+          "side": "R",
+          "upper_drop_deg": 78.52007828546036,
+          "source_upper_drop_deg": 78.52006466689053,
+          "elbow_bend_deg": 23.598295131981367
+        },
+        {
+          "frame": 40,
+          "side": "L",
+          "upper_drop_deg": 83.28997079387273,
+          "source_upper_drop_deg": 83.2899666645165,
+          "elbow_bend_deg": 18.29129204345793
+        },
+        {
+          "frame": 40,
+          "side": "R",
+          "upper_drop_deg": 78.41523390944778,
+          "source_upper_drop_deg": 78.41522959116409,
+          "elbow_bend_deg": 23.74785249708944
+        }
+      ],
+      "per_bone": {
+        "全ての親": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782341066293847
+        },
+        "センター": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "センター2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "グルーブ": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "グルーブ2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "腰": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.028018142971245625,
+          "transfer_deg": 0.02801814291921295,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "上半身": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02976670560924809,
+          "transfer_deg": 0.029766705560271927,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "下半身": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.023649202157416768
+        },
+        "上半身3": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.022254658202501946,
+          "transfer_deg": 0.022254658071485876,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "右足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02628439548050484,
+          "transfer_deg": 0.02628439534184282,
+          "solver_vs_theory_deg": 3.1945284701301985e-06
+        },
+        "左足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.025130409928297584,
+          "transfer_deg": 0.02513040975426235,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "上半身2": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.018086338337303783,
+          "transfer_deg": 0.018086338297001018,
+          "solver_vs_theory_deg": 2.091309789151873e-06
+        },
+        "右ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02153589756997797,
+          "transfer_deg": 0.02153589736689487,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "左ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.027325335556864023,
+          "transfer_deg": 0.027325335450160197,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "右肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.03348229148619879
+        },
+        "右足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.027486449230537884,
+          "transfer_deg": 0.02748644912445951,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "左肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.03348229148619879
+        },
+        "左足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02935243809095801,
+          "transfer_deg": 0.029352437941955842,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.028654926475611117,
+          "transfer_deg": 0.028654926475611117,
+          "solver_vs_theory_deg": 2.091309789151873e-06
+        },
+        "右肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02827604090713578,
+          "transfer_deg": 0.02827604098447293,
+          "solver_vs_theory_deg": 2.091309789151873e-06
+        },
+        "左肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.018976010524404056,
+          "transfer_deg": 0.018976010601230473,
+          "solver_vs_theory_deg": 0.0
+        },
+        "頭": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.027950420207843364,
+          "transfer_deg": 0.027950420207843364,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "右肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.029965031701645498
+        },
+        "左肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.02645180124253168
+        },
+        "右腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.048840039281259566,
+          "aim_deg": 0.03884168807842416
+        },
+        "左腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.03032640338488537,
+          "aim_deg": 0.028458397507663945
+        },
+        "右腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.04911698846006888
+        },
+        "左腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.03402272921578389
+        },
+        "右ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.019232932129328337,
+          "aim_deg": 0.016282746113432004
+        },
+        "左ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.05135204859367387,
+          "aim_deg": 0.042953317129382315
+        },
+        "右手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.01979941129319893
+        },
+        "左手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.030830919535595372
+        },
+        "右手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.018687465952192863,
+          "aim_deg": 0.021789854422340375
+        },
+        "左手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.02226248664066744,
+          "aim_deg": 0.017055201675127172
+        }
+      }
+    },
+    {
+      "motion": ".local/soma/soma_tmr_test_400m_all_fullpose/clips/t2m/test_rec_01KX31FE32KWPXWZF3RRXN9T72/gt/smplx_params.npz",
+      "frames_checked": 91,
+      "channels": 34,
+      "driven": 20,
+      "root_translation_scale": 0.9237171227471687,
+      "polish": {
+        "hand_relax": 1.0,
+        "twist_smoothed_sources": [
+          "left_shoulder",
+          "left_elbow",
+          "left_wrist",
+          "right_shoulder",
+          "right_elbow",
+          "right_wrist"
+        ],
+        "twist_smoothing_window": 5
+      },
+      "worst": {
+        "blender_vs_solver_deg": {
+          "value": 0.04206002707271169,
+          "bone": "右腕",
+          "frame": 34
+        },
+        "relative_transfer_deg": {
+          "value": 0.03323037537725752,
+          "bone": "右肩",
+          "frame": 4
+        },
+        "solver_vs_theory_deg": {
+          "value": 3.6222548091772e-06,
+          "bone": "左足首",
+          "frame": 76
+        },
+        "absolute_aim_deg": {
+          "value": 0.03501617426860849,
+          "bone": "右ひじ",
+          "frame": 75
+        }
+      },
+      "arm_angles": [
+        {
+          "frame": 1,
+          "side": "L",
+          "upper_drop_deg": 59.063342117996136,
+          "source_upper_drop_deg": 59.06333578757601,
+          "elbow_bend_deg": 42.23842321595991
+        },
+        {
+          "frame": 1,
+          "side": "R",
+          "upper_drop_deg": 23.395119892248484,
+          "source_upper_drop_deg": 23.39512596343665,
+          "elbow_bend_deg": 34.13083333050938
+        },
+        {
+          "frame": 14,
+          "side": "L",
+          "upper_drop_deg": 58.00779567304832,
+          "source_upper_drop_deg": 58.00779327577402,
+          "elbow_bend_deg": 43.59870733261968
+        },
+        {
+          "frame": 14,
+          "side": "R",
+          "upper_drop_deg": 28.961844247065585,
+          "source_upper_drop_deg": 28.96184589944996,
+          "elbow_bend_deg": 47.34794531731933
+        },
+        {
+          "frame": 28,
+          "side": "L",
+          "upper_drop_deg": 56.77955092012277,
+          "source_upper_drop_deg": 56.7795474981943,
+          "elbow_bend_deg": 46.12674745659422
+        },
+        {
+          "frame": 28,
+          "side": "R",
+          "upper_drop_deg": 60.42851967849452,
+          "source_upper_drop_deg": 60.428521193968926,
+          "elbow_bend_deg": 115.95217863021394
+        },
+        {
+          "frame": 40,
+          "side": "L",
+          "upper_drop_deg": 59.46663382179357,
+          "source_upper_drop_deg": 59.466633456468,
+          "elbow_bend_deg": 49.06509719633272
+        },
+        {
+          "frame": 40,
+          "side": "R",
+          "upper_drop_deg": 63.491079711751205,
+          "source_upper_drop_deg": 63.49107521603248,
+          "elbow_bend_deg": 111.50217753304024
+        }
+      ],
+      "per_bone": {
+        "全ての親": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782341066293847
+        },
+        "センター": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "センター2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "グルーブ": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "グルーブ2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "腰": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02610217994887703,
+          "transfer_deg": 0.02610217989302503,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "上半身": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.028789407698598144,
+          "transfer_deg": 0.028789407597320692,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "下半身": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019324654246943632
+        },
+        "上半身3": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.023902562808127744,
+          "transfer_deg": 0.023902562655648392,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "右足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.027190905812819844,
+          "transfer_deg": 0.02719090562516496,
+          "solver_vs_theory_deg": 3.1945284701301985e-06
+        },
+        "左足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02522607580075339,
+          "transfer_deg": 0.02522607562737816,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "上半身2": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02435592725463031,
+          "transfer_deg": 0.024355927194773877,
+          "solver_vs_theory_deg": 2.091309789151873e-06
+        },
+        "右ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02258597004345956,
+          "transfer_deg": 0.022585969882091807,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "左ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.028269506116701235,
+          "transfer_deg": 0.0282695060135612,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "右肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.03165844103146742
+        },
+        "右足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02829395095286936,
+          "transfer_deg": 0.028293950849818433,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "左肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.03165844103146742
+        },
+        "左足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02702959270454119,
+          "transfer_deg": 0.02702959259666987,
+          "solver_vs_theory_deg": 3.6222548091772e-06
+        },
+        "首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.031089333185411027,
+          "transfer_deg": 0.031089333161964737,
+          "solver_vs_theory_deg": 1.7075472925031877e-06
+        },
+        "右肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.03323037531145061,
+          "transfer_deg": 0.03323037537725752,
+          "solver_vs_theory_deg": 1.7075472925031877e-06
+        },
+        "左肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02259667335426464,
+          "transfer_deg": 0.02259667341878117,
+          "solver_vs_theory_deg": 0.0
+        },
+        "頭": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02730295812431677,
+          "transfer_deg": 0.027302958070921125,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "右肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.031409469445820556
+        },
+        "左肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.02679767024902653
+        },
+        "右腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.04206002707271169,
+          "aim_deg": 0.03029553994683032
+        },
+        "左腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.02910908287719492,
+          "aim_deg": 0.02331042367091643
+        },
+        "右腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.03566485589085764
+        },
+        "左腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.040424296708728505
+        },
+        "右ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.03457544781953169,
+          "aim_deg": 0.03501617426860849
+        },
+        "左ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.01106600051365062,
+          "aim_deg": 0.010324726584189842
+        },
+        "右手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.03477970204825979
+        },
+        "左手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.019072108521608216
+        },
+        "右手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.029156048573383844,
+          "aim_deg": 0.0281859750622779
+        },
+        "左手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.025401405204339516,
+          "aim_deg": 0.023820106679872874
+        }
+      }
+    },
+    {
+      "motion": ".local/soma/soma_tmr_test_400m_all_fullpose/clips/t2m/test_rec_01KX334K6DTCM8VF8V22AR4P74/gt/smplx_params.npz",
+      "frames_checked": 62,
+      "channels": 34,
+      "driven": 20,
+      "root_translation_scale": 0.9237776268796727,
+      "polish": {
+        "hand_relax": 1.0,
+        "twist_smoothed_sources": [
+          "left_shoulder",
+          "left_elbow",
+          "left_wrist",
+          "right_shoulder",
+          "right_elbow",
+          "right_wrist"
+        ],
+        "twist_smoothing_window": 5
+      },
+      "worst": {
+        "blender_vs_solver_deg": {
+          "value": 0.04924946167719305,
+          "bone": "右手捩",
+          "frame": 25
+        },
+        "relative_transfer_deg": {
+          "value": 0.03138298504512356,
+          "bone": "首",
+          "frame": 53
+        },
+        "solver_vs_theory_deg": {
+          "value": 3.4150945850063763e-06,
+          "bone": "左足首",
+          "frame": 9
+        },
+        "absolute_aim_deg": {
+          "value": 0.03869290268156384,
+          "bone": "左ひじ",
+          "frame": 8
+        }
+      },
+      "arm_angles": [
+        {
+          "frame": 1,
+          "side": "L",
+          "upper_drop_deg": 67.59482604875201,
+          "source_upper_drop_deg": 67.59482046554054,
+          "elbow_bend_deg": 33.91872726049583
+        },
+        {
+          "frame": 1,
+          "side": "R",
+          "upper_drop_deg": 74.75311837601737,
+          "source_upper_drop_deg": 74.7531290667851,
+          "elbow_bend_deg": 33.972595611402454
+        },
+        {
+          "frame": 14,
+          "side": "L",
+          "upper_drop_deg": 68.95574684717923,
+          "source_upper_drop_deg": 68.9557514215929,
+          "elbow_bend_deg": 34.4640242439083
+        },
+        {
+          "frame": 14,
+          "side": "R",
+          "upper_drop_deg": 56.448096721290355,
+          "source_upper_drop_deg": 56.44809697460328,
+          "elbow_bend_deg": 29.90667731227392
+        },
+        {
+          "frame": 28,
+          "side": "L",
+          "upper_drop_deg": 70.59229986736585,
+          "source_upper_drop_deg": 70.59229963862116,
+          "elbow_bend_deg": 26.005989548661983
+        },
+        {
+          "frame": 28,
+          "side": "R",
+          "upper_drop_deg": 64.60624484462119,
+          "source_upper_drop_deg": 64.60624354258722,
+          "elbow_bend_deg": 29.495091602865198
+        },
+        {
+          "frame": 40,
+          "side": "L",
+          "upper_drop_deg": 72.56609020988327,
+          "source_upper_drop_deg": 72.56608879890071,
+          "elbow_bend_deg": 22.12154475998588
+        },
+        {
+          "frame": 40,
+          "side": "R",
+          "upper_drop_deg": 71.82110252586378,
+          "source_upper_drop_deg": 71.82111275800341,
+          "elbow_bend_deg": 28.038367306656898
+        }
+      ],
+      "per_bone": {
+        "全ての親": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782341066293847
+        },
+        "センター": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "センター2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "グルーブ": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "グルーブ2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "腰": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.024938428865185013,
+          "transfer_deg": 0.024938428777497516,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "上半身": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.030397615848956526,
+          "transfer_deg": 0.030397615753037226,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "下半身": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01774404042897283
+        },
+        "上半身3": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02749291686372198,
+          "transfer_deg": 0.027492916784181913,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "右足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02212810187752433,
+          "transfer_deg": 0.022128101679876257,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "左足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02349264686811195,
+          "transfer_deg": 0.023492646681944042,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "上半身2": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02262278716870416,
+          "transfer_deg": 0.022622787104262104,
+          "solver_vs_theory_deg": 2.091309789151873e-06
+        },
+        "右ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02414267029436323,
+          "transfer_deg": 0.024142670113207757,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "左ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.027252842878272888,
+          "transfer_deg": 0.027252842771285226,
+          "solver_vs_theory_deg": 3.1945284701301985e-06
+        },
+        "右肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.03983541945810681
+        },
+        "右足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02743560684365423,
+          "transfer_deg": 0.0274356066842418,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "左肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.03983541945810681
+        },
+        "左足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.025598607217732314,
+          "transfer_deg": 0.02559860698992946,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.031382985068350466,
+          "transfer_deg": 0.03138298504512356,
+          "solver_vs_theory_deg": 1.7075472925031877e-06
+        },
+        "右肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.029208125635192237,
+          "transfer_deg": 0.02920812571006142,
+          "solver_vs_theory_deg": 1.7075472925031877e-06
+        },
+        "左肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.019657292092411,
+          "transfer_deg": 0.019657292092411,
+          "solver_vs_theory_deg": 0.0
+        },
+        "頭": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.030898009535670016,
+          "transfer_deg": 0.03089800955926148,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "右肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.029360703170093594
+        },
+        "左肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.02310084673331859
+        },
+        "右腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.038735986337191566,
+          "aim_deg": 0.027347574201927603
+        },
+        "左腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.02436773101587123,
+          "aim_deg": 0.020673728526596956
+        },
+        "右腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.04737565383284649
+        },
+        "左腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.021591807828237202
+        },
+        "右ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.021295168815806512,
+          "aim_deg": 0.02364207442470681
+        },
+        "左ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.0456248163517726,
+          "aim_deg": 0.03869290268156384
+        },
+        "右手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.04924946167719305
+        },
+        "左手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.04526633578222715
+        },
+        "右手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.031971173672302865,
+          "aim_deg": 0.028775229060381997
+        },
+        "左手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.03681918594593744,
+          "aim_deg": 0.035417722451485986
+        }
+      }
+    },
+    {
+      "motion": ".local/soma/soma_tmr_test_400m_all_fullpose/clips/t2m/test_rec_01KX39M1ED4XZ40EVFFBTC84JZ/gt/smplx_params.npz",
+      "frames_checked": 103,
+      "channels": 34,
+      "driven": 20,
+      "root_translation_scale": 0.9283233563096955,
+      "polish": {
+        "hand_relax": 1.0,
+        "twist_smoothed_sources": [
+          "left_shoulder",
+          "left_elbow",
+          "left_wrist",
+          "right_shoulder",
+          "right_elbow",
+          "right_wrist"
+        ],
+        "twist_smoothing_window": 5
+      },
+      "worst": {
+        "blender_vs_solver_deg": {
+          "value": 0.04971311119276016,
+          "bone": "右手捩",
+          "frame": 22
+        },
+        "relative_transfer_deg": {
+          "value": 0.039482683619415926,
+          "bone": "右肩",
+          "frame": 103
+        },
+        "solver_vs_theory_deg": {
+          "value": 3.4150945850063763e-06,
+          "bone": "左足首",
+          "frame": 8
+        },
+        "absolute_aim_deg": {
+          "value": 0.035468150372420855,
+          "bone": "右手首",
+          "frame": 12
+        }
+      },
+      "arm_angles": [
+        {
+          "frame": 1,
+          "side": "L",
+          "upper_drop_deg": 51.78030991858899,
+          "source_upper_drop_deg": 51.78031044090194,
+          "elbow_bend_deg": 47.775274815867505
+        },
+        {
+          "frame": 1,
+          "side": "R",
+          "upper_drop_deg": 46.99007947948141,
+          "source_upper_drop_deg": 46.99007802440546,
+          "elbow_bend_deg": 41.32133950742088
+        },
+        {
+          "frame": 14,
+          "side": "L",
+          "upper_drop_deg": 55.23872499232903,
+          "source_upper_drop_deg": 55.23871665566589,
+          "elbow_bend_deg": 50.45170757041964
+        },
+        {
+          "frame": 14,
+          "side": "R",
+          "upper_drop_deg": 45.19495413221042,
+          "source_upper_drop_deg": 45.19495075557648,
+          "elbow_bend_deg": 41.72692887894279
+        },
+        {
+          "frame": 28,
+          "side": "L",
+          "upper_drop_deg": 42.036589530414815,
+          "source_upper_drop_deg": 42.03658814187516,
+          "elbow_bend_deg": 38.502058265237544
+        },
+        {
+          "frame": 28,
+          "side": "R",
+          "upper_drop_deg": 49.4583123980183,
+          "source_upper_drop_deg": 49.458311895357696,
+          "elbow_bend_deg": 27.383489333335504
+        },
+        {
+          "frame": 40,
+          "side": "L",
+          "upper_drop_deg": 65.33897651152219,
+          "source_upper_drop_deg": 65.33898146427862,
+          "elbow_bend_deg": 33.64790369139864
+        },
+        {
+          "frame": 40,
+          "side": "R",
+          "upper_drop_deg": 67.60491367394287,
+          "source_upper_drop_deg": 67.60489959408872,
+          "elbow_bend_deg": 18.887282433633974
+        }
+      ],
+      "per_bone": {
+        "全ての親": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782341066293847
+        },
+        "センター": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "センター2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "グルーブ": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.019782339187072184
+        },
+        "グルーブ2": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.01978234110314133
+        },
+        "腰": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.028119770708210756,
+          "transfer_deg": 0.02811977063044382,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "上半身": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.025306325750095116,
+          "transfer_deg": 0.025306325663682402,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "下半身": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.02485705867830124
+        },
+        "上半身3": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.024051244464375513,
+          "transfer_deg": 0.024051244343146115,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "右足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.027166616040856448,
+          "transfer_deg": 0.02716661587986559,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "左足": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.029001996886434928,
+          "transfer_deg": 0.02900199671049855,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "上半身2": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.0300298194832051,
+          "transfer_deg": 0.03002981943465806,
+          "solver_vs_theory_deg": 2.4148365394514667e-06
+        },
+        "右ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.015691812044014975,
+          "transfer_deg": 0.015691811811750705,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "左ひざ": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.0200825616659025,
+          "transfer_deg": 0.02008256152071595,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "右肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.041661004940853036
+        },
+        "右足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.028573956637801542,
+          "transfer_deg": 0.028573956535760444,
+          "solver_vs_theory_deg": 2.9575586669421963e-06
+        },
+        "左肩P": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.041661004940853036
+        },
+        "左足首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02938273250290299,
+          "transfer_deg": 0.02938273235405445,
+          "solver_vs_theory_deg": 3.4150945850063763e-06
+        },
+        "首": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.030502309759152156,
+          "transfer_deg": 0.030502309735254637,
+          "solver_vs_theory_deg": 1.7075472925031877e-06
+        },
+        "右肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.03948268356402991,
+          "transfer_deg": 0.039482683619415926,
+          "solver_vs_theory_deg": 1.7075472925031877e-06
+        },
+        "左肩": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.02868318901953803,
+          "transfer_deg": 0.028683189121190535,
+          "solver_vs_theory_deg": 0.0
+        },
+        "頭": {
+          "mode": "relative",
+          "blender_vs_solver_deg": 0.024009054149813996,
+          "transfer_deg": 0.024009054180174606,
+          "solver_vs_theory_deg": 2.699869328381916e-06
+        },
+        "右肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.02831729163514496
+        },
+        "左肩C": {
+          "mode": "passthrough",
+          "blender_vs_solver_deg": 0.024804052160503
+        },
+        "右腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.032868404947485684,
+          "aim_deg": 0.029738229591032273
+        },
+        "左腕": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.028525288731366456,
+          "aim_deg": 0.025611640658276136
+        },
+        "右腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.0378362128359076
+        },
+        "左腕捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.03591682326586263
+        },
+        "右ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.03251513001393291,
+          "aim_deg": 0.0305549363281566
+        },
+        "左ひじ": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.03358402146452642,
+          "aim_deg": 0.024061964330570063
+        },
+        "右手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.04971311119276016
+        },
+        "左手捩": {
+          "mode": "twist",
+          "blender_vs_solver_deg": 0.02554015132866583
+        },
+        "右手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.03514590968161486,
+          "aim_deg": 0.035468150372420855
+        },
+        "左手首": {
+          "mode": "absolute",
+          "blender_vs_solver_deg": 0.03217657124352163,
+          "aim_deg": 0.028915013441315886
+        }
+      }
+    }
+  ]
+}

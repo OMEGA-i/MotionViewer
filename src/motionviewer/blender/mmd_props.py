@@ -649,21 +649,23 @@ def build_carry_box_scene(
     through it. Pushing it forward instead clears the torso by 17 cm and the chin by
     9 cm, with the hands just outside its sides.
     """
-    # Drop the crate by half its height so its *top* meets the hands rather than its
-    # waistline. The palm normals point forward **and down** (measured: +0.81 forward,
-    # -0.50 up), and a palm facing down is resting on something, not gripping its
-    # middle — so the load hangs below and in front of the hands. Centring it on the
-    # wrists put half the crate under them, which reads as the hands passing through it.
+    # Lift the crate by half its height so its *base* rests on the hands: a load carried
+    # in both arms sits on top of them. Two earlier versions had it centred on the wrists
+    # (half the crate below them, so the forearms passed through it) and then hanging
+    # below them (which reads as the box floating under the hands rather than being
+    # held). Palm normals were measured pointing forward and slightly down, which is why
+    # the second version looked plausible on paper; on screen a carried crate has to be
+    # supported from underneath.
     box = Prop(
         obj=build_cardboard_box(bpy, style, side=side, depth=depth, height=height),
         bone=hand_bone,
         aim_bone=other_bone,
         aim_fraction=0.5,
-        world_offset=(forward[0] * push, forward[1] * push, -height / 2.0 + 0.02),
+        world_offset=(forward[0] * push, forward[1] * push, height / 2.0 + 0.015),
     )
     notes = [
         f"crate {side * 100:.0f}x{depth * 100:.0f}x{height * 100:.0f} cm, "
-        f"hung from the wrists by its top edge, {push * 100:.0f} cm forward"
+        f"resting on the wrists by its base, {push * 100:.0f} cm forward"
     ]
     if not other_bone:
         notes.append("no second hand given, so the crate hangs off one wrist and will drift")
@@ -840,35 +842,85 @@ def _span(obj: Any, axis: int) -> float:
     return (max(values) - min(values)) if values else 0.0
 
 
-def _grip_point_and_axis(obj: Any, grip: str) -> tuple[Any, Any, float]:
-    """Where the hand goes on this weapon, and which way the business end points.
+def _girth_profile(obj: Any, axis: int, slices: int = 40) -> Any:
+    """Mean cross-section width in each slice along ``axis``, low to high."""
+    import numpy as np
 
-    ``grip`` is taken from the table rather than measured; see WEAPON_BY_CHARACTER for
-    the four girth profiles that show why no single geometric rule fits all of them.
+    co = np.array([(v.co.x, v.co.y, v.co.z) for v in obj.data.vertices])
+    low, high = co[:, axis].min(), co[:, axis].max()
+    others = [index for index in range(3) if index != axis]
+    edges = np.linspace(low, high, slices + 1)
+    out = []
+    for index in range(slices):
+        mask = (co[:, axis] >= edges[index]) & (co[:, axis] < edges[index + 1])
+        if mask.sum() < 3:
+            out.append(0.0)
+            continue
+        chunk = co[mask]
+        out.append(float(np.mean([chunk[:, o].max() - chunk[:, o].min() for o in others])))
+    return np.array(out), float(low), float(high)
+
+
+def _grip_point_and_axis(obj: Any, grip: str) -> tuple[Any, Any, float, float]:
+    """Where the hand goes, which way the weapon points, its length and its shaft width.
+
+    The grip *section* is measured, not assumed: it is the run of slices from the end the
+    table names whose girth stays under 45% of the weapon's widest, and the hand goes at
+    that run's midpoint. Putting the hand at the extreme end instead — which an earlier
+    version did, at 5 cm in — leaves 20 cm of grip sticking out past the fist and reads
+    as a palm pressed against the weapon's butt rather than a hand holding it. Measured:
+    彦卿 21.8 cm of grip, 流萤 23.1, 飞霄 52.2, 青衣 120.6.
     """
+    import numpy as np
     from mathutils import Vector
 
-    coordinates = [(v.co.x, v.co.y, v.co.z) for v in obj.data.vertices]
-    lows = [min(c[axis] for c in coordinates) for axis in range(3)]
-    highs = [max(c[axis] for c in coordinates) for axis in range(3)]
-    spans = [highs[axis] - lows[axis] for axis in range(3)]
-    axis = max(range(3), key=lambda index: spans[index])
+    co = np.array([(v.co.x, v.co.y, v.co.z) for v in obj.data.vertices])
+    spans = co.max(axis=0) - co.min(axis=0)
+    axis = int(np.argmax(spans))
+    profile, low, high = _girth_profile(obj, axis)
+    slices = len(profile)
+    thin = profile.max() * 0.45
 
-    grip_local = Vector((0.0, 0.0, 0.0))
     direction = Vector((0.0, 0.0, 0.0))
-    if grip == "low":
-        grip_local[axis] = lows[axis]
+    if grip == "mid":
+        middle = slices // 2
+        reach = 0
+        while (
+            middle - reach >= 0
+            and middle + reach < slices
+            and profile[middle - reach] < thin
+            and profile[middle + reach] < thin
+        ):
+            reach += 1
+        first, last = middle - reach, middle + reach
         direction[axis] = 1.0
-    elif grip == "high":
-        grip_local[axis] = highs[axis]
+    elif grip == "low":
+        last = 0
+        while last < slices and 0.0 < profile[last] < thin:
+            last += 1
+        first = 0
+        direction[axis] = 1.0
+    else:
+        first = slices - 1
+        while first >= 0 and 0.0 < profile[first] < thin:
+            first -= 1
+        last = slices - 1
         direction[axis] = -1.0
-    else:  # mid: a staff or a bow, held at its balance point
-        grip_local[axis] = (lows[axis] + highs[axis]) / 2.0
-        direction[axis] = 1.0
-    # Centre the grip on the other two axes, so a thick pommel is not held by its corner.
+    first, last = max(0, first), min(slices - 1, max(last, first + 1))
+
+    step = (high - low) / slices
+    band_from, band_to = low + first * step, low + (last + 1) * step
+    centre = (band_from + band_to) / 2.0
+    shaft = float(np.median([p for p in profile[first : last + 1] if p > 0] or [profile.max()]))
+
+    inside = co[(co[:, axis] >= band_from) & (co[:, axis] <= band_to)]
+    if not len(inside):
+        inside = co
+    grip_local = Vector((0.0, 0.0, 0.0))
+    grip_local[axis] = centre
     for other in (index for index in range(3) if index != axis):
-        grip_local[other] = (lows[other] + highs[other]) / 2.0
-    return grip_local, direction, spans[axis]
+        grip_local[other] = float(inside[:, other].mean())
+    return grip_local, direction, float(spans[axis]), shaft
 
 
 def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str, grip: str = "low") -> dict:
@@ -899,7 +951,7 @@ def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str, grip: 
     forward.normalize()
     palm = wrist + forward * (knuckles - wrist).length * 0.6
 
-    grip_local, local_dir, length = _grip_point_and_axis(obj, grip)
+    grip_local, local_dir, length, shaft = _grip_point_and_axis(obj, grip)
 
     # Constrain the roll too: the blade's flat is turned across the palm rather than at
     # the camera. Leaving it to rotation_difference rendered a 2 m polearm as a rod.
@@ -932,43 +984,76 @@ def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str, grip: 
     obj.matrix_world = placement
     return {
         "grip": grip,
+        "shaft_mm": round(shaft * 1000, 1),
         "length_m": length,
         "palm": tuple(round(v, 3) for v in palm),
         "tip": tuple(round(v, 3) for v in (palm + forward * length)),
     }
 
 
+#: Base curl per phalanx, for a shaft about 32 mm across. Scaled by shaft width in
+#: ``close_hand``: a 26 mm hilt needs the fingers further round than a 37 mm pole, and a
+#: single fixed set left visible daylight between the fingertips and the thinner grips.
 CLOSED_FINGER_DEGREES = {
-    "１": 42.0,
-    "２": 52.0,
-    "３": 34.0,
+    "１": 46.0,
+    "２": 58.0,
+    "３": 40.0,
 }
+#: The shaft width the angles above are tuned for, in metres.
+REFERENCE_SHAFT_M = 0.032
 
 
-def close_hand(bpy: Any, armature: Any, hand_bone: str) -> int:
-    """Curl the fingers of the weapon hand into a fist.
+def close_hand(
+    bpy: Any,
+    armature: Any,
+    hand_bone: str,
+    *,
+    frame_start: int = 1,
+    frames: int = 1,
+    shaft_m: float = REFERENCE_SHAFT_M,
+) -> dict:
+    """Curl the fingers of the weapon hand into a fist, on every frame.
 
-    The retarget leaves the hand in its relaxed rest curl because the body-22 source
-    carries no finger data. Around a sword that reads as an open palm with a blade
-    balanced on it, which is what the render showed. Bending the three phalanges of the
-    four fingers — the thumb is left alone, since it wraps the other way and a uniform
-    curl makes it cross the grip — is enough for a fist at the size a hand occupies.
+    Two things had to be measured rather than assumed, and the first version got both
+    wrong: the render showed a splayed open hand with the sword floating beside it.
+
+    **Which way closes.** Turning the phalanges by -42 degrees about local X moves the
+    fingertips 5.67 cm toward the *back* of the hand; +42 moves them 4.93 cm toward the
+    palm and draws the tips from 14.09 cm to 8.90 cm off the wrist. Distance alone
+    cannot tell the two apart — every axis but Y shortens it, because any large rotation
+    folds the chain — so the test is displacement along the palm direction, taken as the
+    thumb's offset from the wrist-to-middle-finger axis.
+
+    **Keying once is not enough.** The retarget bakes ``rotation_quaternion`` on every
+    frame. A lone ``rotation_euler`` key is ignored while the mode is quaternion, and
+    switching the mode drops the bone out of the baked animation entirely. So the curl
+    goes in as quaternion keys across the range, composed onto what is already there.
+
+    The thumb is left alone: it wraps the other way, and the same curl sends it through
+    the grip.
     """
-    del bpy
+    from mathutils import Euler
+
+    # Thinner grip, tighter fist. Clamped so a very thin hilt does not fold the fingers
+    # through the palm and a thick pole does not leave them straight.
+    scale = min(1.35, max(0.75, REFERENCE_SHAFT_M / max(shaft_m, 1e-4)))
     side = "右" if hand_bone.startswith("右") else "左"
-    turned = 0
-    for finger in ("人指", "中指", "薬指", "小指"):
-        for segment, degrees in CLOSED_FINGER_DEGREES.items():
-            name = f"{side}{finger}{segment}"
-            bone = armature.pose.bones.get(name)
-            if bone is None:
-                continue
-            bone.rotation_mode = "XYZ"
-            # Negative about local X curls the finger toward the palm on this rig family.
-            bone.rotation_euler.x -= math.radians(degrees)
-            bone.keyframe_insert("rotation_euler", index=-1)
-            turned += 1
-    return turned
+    keys = 0
+    for offset in range(max(1, frames)):
+        frame = frame_start + offset
+        bpy.context.scene.frame_set(frame)
+        for finger in ("人指", "中指", "薬指", "小指"):
+            for segment, degrees in CLOSED_FINGER_DEGREES.items():
+                bone = armature.pose.bones.get(f"{side}{finger}{segment}")
+                if bone is None:
+                    continue
+                bone.rotation_mode = "QUATERNION"
+                curl = Euler((math.radians(degrees * scale), 0.0, 0.0), "XYZ").to_quaternion()
+                bone.rotation_quaternion = bone.rotation_quaternion @ curl
+                bone.keyframe_insert("rotation_quaternion", frame=frame)
+                keys += 1
+    bpy.context.scene.frame_set(frame_start)
+    return {"bones": 4 * len(CLOSED_FINGER_DEGREES), "keys": keys, "curl_scale": round(scale, 3)}
 
 
 def _span(obj: Any, axis: int) -> float:

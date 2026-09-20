@@ -31,22 +31,63 @@ _KATAKANA = range(0xFF61, 0xFFA0)
 
 
 def _plausible(decoded: str) -> bool:
-    """Reject a decode that is all half-width katakana — that is the failure mode."""
+    """Reject a decode that is all half-width katakana — that is one failure mode."""
     letters = [ch for ch in decoded if not ch.isascii()]
     if not letters:
         return True
     return not all(ord(ch) in _KATAKANA for ch in letters)
 
 
+#: Both directions of the same mistake. A Chinese pack writes GBK and a reader assuming
+#: Shift-JIS turns 颜 into ﾑﾕ; a Japanese pack writes Shift-JIS and a reader assuming GBK
+#: turns 体 into 懱. Neither raises, and neither result looks wrong on its own — 懱 is a
+#: perfectly real ideograph — so a name cannot be judged in isolation.
+_REPAIRS = (("cp932", "gbk"), ("gbk", "cp932"), ("shift_jis", "gbk"), ("gbk", "shift_jis"))
+
+
+def repair_against(names: list[str], wanted: set[str]) -> dict[str, str]:
+    """Rename files already on disk to the names the PMX asks for.
+
+    The only dependable test is external. Scoring a candidate by how ordinary its
+    characters look does not work: ``懱`` and its repair ``体`` are both in the CJK block,
+    both are single ideographs, and both look equally plausible. What separates them is
+    that the model references ``体.png`` and never ``懱.png``.
+
+    So the repair is driven by the PMX's own texture list: for each file on disk, try both
+    directions of the mojibake and keep the one the model is looking for. A file nothing
+    references is left alone rather than guessed at.
+    """
+    mapping = {}
+    for name in names:
+        if name in wanted:
+            continue
+        for source, target in _REPAIRS:
+            try:
+                candidate = name.encode(source).decode(target)
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                continue
+            if candidate in wanted and _plausible(candidate):
+                mapping[name] = candidate
+                break
+    return mapping
+
+
 def decode(name: str) -> str:
-    """Recover a mojibake entry name, or return it unchanged if it is already fine."""
+    """Recover a mojibake entry name, or return it unchanged if it is already fine.
+
+    ``gbk`` is tried before ``cp932`` deliberately: these packs are mostly Chinese, and a
+    GBK name misread as CP932 still *decodes* — it just produces half-width katakana.
+    ``颜.png`` arriving as ``ﾑﾕ.png`` is exactly that, and because it decodes cleanly a
+    cp932-first order stops there and never tries GBK, so every texture the PMX asks for
+    by its real name goes missing and the model renders magenta.
+    """
     try:
         raw = name.encode("cp437")
     except UnicodeEncodeError:
         # Already decoded by zipfile, but possibly through the wrong codec.
-        for codec in ("cp932", "shift_jis"):
+        for source, target in _REPAIRS:
             try:
-                candidate = name.encode(codec).decode("gbk")
+                candidate = name.encode(source).decode(target)
             except (UnicodeEncodeError, UnicodeDecodeError):
                 continue
             if _plausible(candidate):

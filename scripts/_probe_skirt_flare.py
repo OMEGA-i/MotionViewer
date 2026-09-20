@@ -111,9 +111,14 @@ def main() -> None:
             actor.armature,
             frame_start=1,
             frame_end=max(frames),
+            fps=50.0,
             settings=BulletSettings(settle_frames=25),
         )
-        print(f"FLARE bullet built={info.get('built')} bodies={info.get('rigid_bodies')}", flush=True)
+        print(
+            f"FLARE bullet built={info.get('built')} bodies={info.get('rigid_bodies')} "
+            f"fps={info.get('fps')} gravity={info.get('gravity')} damping={info.get('damping')}",
+            flush=True,
+        )
 
     for frame in frames:
         bpy.context.scene.frame_set(frame)

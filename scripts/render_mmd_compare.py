@@ -802,6 +802,7 @@ def main() -> None:
             actor.armature,
             frame_start=frame_start,
             frame_end=frame_end,
+            fps=source_fps,
             settings=BulletSettings(
                 substeps=args.bullet_substeps,
                 iterations=args.bullet_iterations,

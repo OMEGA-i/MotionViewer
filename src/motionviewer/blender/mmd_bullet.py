@@ -49,6 +49,48 @@ class BulletSettings:
     #: Passed straight to ``Model.build``. The margin keeps thin panels from tunnelling.
     collision_margin: float = 1e-06
     non_collision_distance_scale: float = 1.5
+    #: Translate the PMX's damping instead of copying the number. See
+    #: ``correct_damping`` — the two formats mean opposite things by the same value.
+    fix_damping: bool = True
+    #: Scene gravity. MMD's own convention, which ``mmd_tools`` carries as a commented
+    #: out ``-9.81 * 10 * scale``; at the 0.08 import scale that is -7.848, against
+    #: Blender's default -9.81.
+    gravity: float = -7.848
+
+
+def correct_damping(bpy: Any, model: Any) -> dict:
+    """Convert MMD's velocity attenuation into Blender's damping.
+
+    The two formats mean opposite things by the same number, and ``mmd_tools`` copies it
+    across unchanged:
+
+        MMD      v(t+1) = v(t) * attenuation      0.9999 barely damps
+        Blender  v(t+1) = v(t) * (1 - damping)    0.9999 removes almost everything
+
+    Yoimiya's skirt panels carry ``velocity_attenuation = 0.9999`` and
+    ``rotation_attenuation = 1.0`` — the author asking for cloth that keeps its momentum.
+    Imported literally they become bodies with damping 1.0, the maximum Blender allows,
+    which pins them in place. A pinned body cannot follow its bone, so the joints drag it
+    and the hem whips outward: measured, the skirt stands 25% further off the legs with
+    physics on than with it off, and no amount of extra damping helped because damping was
+    already saturated.
+
+    Returns what was changed, so a caller can report it.
+    """
+    changed = 0
+    values = []
+    for rigid in model.rigidBodies():
+        body = rigid.rigid_body
+        if body is None or body.kinematic:
+            continue
+        linear = max(0.0, min(1.0, 1.0 - body.linear_damping))
+        angular = max(0.0, min(1.0, 1.0 - body.angular_damping))
+        body.linear_damping = linear
+        body.angular_damping = angular
+        values.append(linear)
+        changed += 1
+    median = sorted(values)[len(values) // 2] if values else 0.0
+    return {"bodies": changed, "median_linear_damping": round(median, 4)}
 
 
 def build_and_bake(
@@ -57,6 +99,7 @@ def build_and_bake(
     *,
     frame_start: int,
     frame_end: int,
+    fps: float | None = None,
     settings: BulletSettings | None = None,
 ) -> dict:
     """Build the PMX physics rig on ``armature``'s model and bake the simulation.
@@ -78,6 +121,14 @@ def build_and_bake(
         return {"built": False, "reason": "this PMX carries no rigid bodies"}
 
     scene = bpy.context.scene
+    # Bullet takes its timestep from the scene frame rate, so a wrong rate is a wrong
+    # simulation. It was found sitting at Blender's default 24 against 50 fps motion,
+    # which advances the bones a 50 fps step inside a 24 fps tick and tears the cloth
+    # apart. The renderer sets it, but anything else that drives a bake would not, so the
+    # rate is asserted here rather than assumed.
+    if fps is not None:
+        scene.render.fps = int(round(fps))
+        scene.render.fps_base = 1.0
     bake_start = frame_start - settings.settle_frames
 
     # Stand the character on the frame the simulation will begin from *before* building.
@@ -95,6 +146,13 @@ def build_and_bake(
         non_collision_distance_scale=settings.non_collision_distance_scale,
         collision_margin=settings.collision_margin,
     )
+
+    report_damping: dict = {}
+    if settings.fix_damping:
+        report_damping = correct_damping(bpy, model)
+
+    # MMD's gravity convention, not Blender's default.
+    scene.gravity = (0.0, 0.0, settings.gravity)
 
     if scene.rigidbody_world is None:
         bpy.ops.rigidbody.world_add()
@@ -127,4 +185,7 @@ def build_and_bake(
         "iterations": settings.iterations,
         "settled_from": bake_start,
         "baked_to": frame_end,
+        "fps": scene.render.fps,
+        "gravity": settings.gravity,
+        "damping": report_damping,
     }

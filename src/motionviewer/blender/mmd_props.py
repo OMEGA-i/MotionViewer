@@ -1162,6 +1162,15 @@ def fit_weapon_to_hand(
             measured_dir = -measured_dir
         shaft_dir = measured_dir
         palm_normal = measured_normal
+        # The measured axis is where the fist closes on *itself*, so it holds a shaft
+        # only as thick as that ring. Measured at the flexion cap, the ring radius is
+        # about 10 mm on these hands — a 20 mm shaft. Yanqing's is 31 mm and Feixiao's
+        # 37 mm, and for the wider one the fingertips stopped 15-29 mm short of the
+        # surface while Yanqing's reached 2-15 mm. Pushing the excess out of the palm
+        # lets the fingers meet the shaft instead of asking them to bend past the limit.
+        excess = shaft / 2.0 - _FIST_RING_RADIUS_M
+        if excess > 0.0:
+            palm = palm + palm_normal * excess
     else:
         # One shaft radius plus flesh below the knuckle line, so the fingers close over
         # the shaft rather than past it.
@@ -1258,6 +1267,17 @@ def _wrap_error(point: Any, origin: Any, direction: Any, normal: Any, radius: fl
 #: joint, and holding that shape while one number scales it keeps the search
 #: one-dimensional per finger.
 _PHALANX_RATIO = (1.0, 1.25, 0.85)
+#: Flexion limits of a real finger, in degrees: knuckle, middle joint, fingertip joint.
+#: The search used to stop at 140, a number with nothing behind it, and three of four
+#: weapons solved past it — 100 to 136 at the knuckle, which drives the middle joint to
+#: 125-170 and folds the finger through itself. That is the deformation, and it is why
+#: Yanqing was the only acceptable hand: it solved at 88, just inside the limit.
+_FLEXION_LIMITS = (90.0, 110.0, 90.0)
+#: Radius of the ring a fist encloses at the flexion cap, measured on these rigs: the
+#: fingertips land 7.6-13.1 mm from the grip axis, so about 10 mm.
+_FIST_RING_RADIUS_M = 0.010
+#: Largest base angle that keeps every phalanx inside its limit, given the ratio above.
+_MAX_BASE_DEGREES = min(limit / ratio for limit, ratio in zip(_FLEXION_LIMITS, _PHALANX_RATIO))
 #: Flesh between the bone the rig reports and the surface that touches the shaft.
 _SKIN_M = 0.002
 
@@ -1341,7 +1361,7 @@ def close_hand(
                 solved[finger] = fallback[finger]
                 continue
             best, best_error = fallback[finger], float("inf")
-            for base in range(20, 141, 2):
+            for base in range(20, int(_MAX_BASE_DEGREES) + 1, 2):
                 pose(finger, float(base))
                 bpy.context.view_layer.update()
                 point = world @ tip.tail

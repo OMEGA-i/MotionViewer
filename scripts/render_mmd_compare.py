@@ -723,7 +723,7 @@ def main() -> None:
                 raise SystemExit(f"--weapon: {weapon_path} not found")
             weapon = load_weapon(bpy, weapon_path)
             try:
-                fit = fit_weapon_to_hand(bpy, weapon, actor.armature, hand, grip=grip)
+                fit = fit_weapon_to_hand(bpy, weapon, actor.armature, hand, grip=grip, frame=frame_start)
             except KeyError:
                 raise SystemExit(f"--weapon: rig has no bone {hand!r}") from None
             if not args.no_outline:

@@ -118,7 +118,7 @@ def main() -> None:
         if not weapon_path.is_file():
             weapon_path = model.parent.parent / entry["file"]
         weapon = load_weapon(bpy, weapon_path, label="w")
-        fit = fit_weapon_to_hand(bpy, weapon, armature, hand, grip=entry["grip"])
+        fit = fit_weapon_to_hand(bpy, weapon, armature, hand, grip=entry["grip"], frame=1)
         curl = close_hand(
             bpy,
             armature,

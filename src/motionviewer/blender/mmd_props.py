@@ -890,19 +890,25 @@ def _grip_point_and_axis(obj: Any, grip: str) -> tuple[Any, Any, float, float]:
             and middle + reach < slices
             and profile[middle - reach] < thin
             and profile[middle + reach] < thin
-        ):
+        ):  # empty slices count as thin; see the note below
             reach += 1
         first, last = middle - reach, middle + reach
         direction[axis] = 1.0
     elif grip == "low":
+        # An empty slice means no vertex fell in it, not that the weapon got thicker, so
+        # it must not end the run. Requiring ``profile[i] > 0`` did end it, and on Feixiao
+        # that turned a 9-slice grip into a 1-slice one at the very tail of the shaft:
+        # its profile has gaps at indices 30 and 38, so the hand was placed 1.10 m out on
+        # the pole instead of 0.89 m, the weapon sat a metre from the fist, and the render
+        # showed a closed hand holding nothing.
         last = 0
-        while last < slices and 0.0 < profile[last] < thin:
+        while last < slices and profile[last] < thin:
             last += 1
         first = 0
         direction[axis] = 1.0
     else:
         first = slices - 1
-        while first >= 0 and 0.0 < profile[first] < thin:
+        while first >= 0 and profile[first] < thin:
             first -= 1
         last = slices - 1
         direction[axis] = -1.0
@@ -923,7 +929,9 @@ def _grip_point_and_axis(obj: Any, grip: str) -> tuple[Any, Any, float, float]:
     return grip_local, direction, float(spans[axis]), shaft
 
 
-def grip_axis_from_fingers(bpy: Any, armature: Any, hand_bone: str) -> tuple[Any, Any, Any]:
+def grip_axis_from_fingers(
+    bpy: Any, armature: Any, hand_bone: str, *, frame: int | None = None
+) -> tuple[Any, Any, Any]:
     """The line a closed fist actually encircles, measured by closing it.
 
     Everything about this was guessed before and each guess was wrong in a way the
@@ -947,6 +955,16 @@ def grip_axis_from_fingers(bpy: Any, armature: Any, hand_bone: str) -> tuple[Any
     The pose is restored before returning.
     """
     from mathutils import Euler, Vector
+
+    # Measure on the frame the weapon will be placed for. Without this the function reads
+    # whatever frame the scene happens to be on, and the retarget leaves it at the *last*
+    # one: on Feixiao that put the axis 872 mm from the wrist instead of 69 mm, so the
+    # weapon was never brought to the hand at all and the render showed an empty fist.
+    # Liuying only escaped it because its final pose happened to be near its first.
+    # Same class of mistake as building the physics rig on a stale frame.
+    if frame is not None:
+        bpy.context.scene.frame_set(frame)
+    bpy.context.view_layer.update()
 
     side = "右" if hand_bone.startswith("右") else "左"
     fingers = ("人指", "中指", "薬指", "小指")
@@ -1013,7 +1031,15 @@ def grip_axis_from_fingers(bpy: Any, armature: Any, hand_bone: str) -> tuple[Any
     return origin, direction, normal.normalized()
 
 
-def fit_weapon_to_hand(bpy: Any, obj: Any, armature: Any, hand_bone: str, grip: str = "low") -> dict:
+def fit_weapon_to_hand(
+    bpy: Any,
+    obj: Any,
+    armature: Any,
+    hand_bone: str,
+    grip: str = "low",
+    *,
+    frame: int | None = None,
+) -> dict:
     """Put the grip in the palm and point the weapon away from the character.
 
     Two things went wrong before this and both showed up as the same picture. The grip

@@ -21,7 +21,8 @@ Design notes, because this is meant to be left running:
 - **Validate before rendering.** A clip that fails the contract is reported with
   the reason and skipped, instead of surfacing 40 minutes later as a Blender
   traceback.
-- **Resumable.** A clip whose MP4 exists is skipped, so the run survives Ctrl-C.
+- **Resumable.** Existing videos are reused only when their recorded inputs and
+  render settings match. Older videos are kept when a new version is rendered.
 - **Frames are deleted once encoded.** 500 clips of 720p PNG is tens of GB and
   none of it is worth keeping.
 - **One failure does not stop the run.** Failures are collected and printed at
@@ -36,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import hashlib
 import html
 import json
 import shutil
@@ -43,6 +45,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 
 import numpy as np
@@ -391,12 +394,19 @@ def discover(data_root: Path, patterns: list[str], trim_mode: str, smooth: int =
 def materialize(clip: Clip, cache: Path, smooth: int, *, head_clear: bool = False) -> str:
     """Write the preprocessed clip for Blender to read. Error string, empty on success.
 
-    The cache name carries the settings, so changing the smoothing window or turning
-    the foot lock on does not silently reuse a file produced under the old ones.
+    The cache name carries the source contents, preprocessing code and settings,
+    so editing an input in place cannot silently reuse an old processed motion.
     """
     if clip.trim <= 0 and smooth < 2 and not head_clear:
         return ""
-    stem = f"{clip.task.replace('/', '-')}_{clip.clip_id}_t{clip.trim}_s{max(smooth, 0)}_h{int(head_clear)}"
+    fingerprint = signature({
+        "source": file_sha256(clip.path),
+        "code": source_fingerprint(),
+        "trim": clip.trim,
+        "smooth": smooth,
+        "head_clear": head_clear,
+    })
+    stem = f"{clip.task.replace('/', '-')}_{clip.clip_id}_{fingerprint[:16]}"
     destination = cache / f"{stem}.npz"
     if not destination.is_file():
         payload, error = validate(clip.path)
@@ -549,6 +559,97 @@ def encode(panels: list[tuple[Path, str]], destination: Path, fps: float, width:
 # ---------------------------------------------------------------------------
 
 
+def file_sha256(path: Path) -> str:
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def signature(payload: dict) -> str:
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+
+
+@cache
+def source_fingerprint() -> str:
+    """Include uncommitted renderer changes, not only the current Git commit."""
+    paths = [Path(__file__), ROOT / "scripts/render_mmd_compare.py"]
+    paths += sorted((ROOT / "src/motionviewer").rglob("*.py"))
+    paths += sorted((ROOT / ".local/blender_mmd_tools/mmd_tools").rglob("*.py"))
+    return signature({str(path.relative_to(ROOT)): file_sha256(path) for path in paths})
+
+
+def asset_fingerprint(asset: Path) -> str:
+    """Textures beside the PMX affect the result just as much as the PMX itself."""
+    return signature({
+        str(path.relative_to(asset.parent)): file_sha256(path)
+        for path in sorted(asset.parent.rglob("*"))
+        if path.is_file() and not path.name.startswith(".")
+    })
+
+
+def render_provenance(clip: Clip, other: Clip | None, character: str, args, environment: dict) -> dict:
+    def source(target: Clip) -> dict:
+        return {
+            "path": str(target.path.resolve()),
+            "sha256": file_sha256(target.path),
+            "trim": target.trim,
+            "frames": target.frames,
+            "fps": target.fps,
+            "caption": target.caption,
+        }
+
+    profile_report = None
+    if getattr(args, "physics_profile", None) is not None:
+        from motionviewer.assets.physics_profiles import resolve_physics_profile
+
+        profile_report = resolve_physics_profile(
+            args.physics_profile, asset_path=ROOT / CHARACTERS[character], import_scale=0.08,
+        ).report()
+    return {
+        "version": 1,
+        "source": source(clip),
+        "compare_source": source(other) if other else None,
+        "character": character,
+        "environment": environment,
+        "physics_profile": profile_report,
+        "settings": {
+            name: getattr(args, name)
+            for name in (
+                "physics", "bullet_substeps", "bullet_iterations", "bullet_settle", "bullet_damping",
+                "bullet_cloth_slack", "bullet_cloth_linear_slack", "bullet_hand_colliders",
+                "view", "resolution", "aspect", "camera", "follow_smooth",
+                "expression", "skeleton", "smooth", "head_clear", "compare",
+                "upper_smooth", "foot_contact", "floor_z", "arm_clearance_degrees", "faithful", "root_motion",
+            )
+        },
+    }
+
+
+def reusable_video(entry: dict | None, output: Path, render_signature: str) -> bool:
+    if entry is None or entry.get("render_signature") != render_signature:
+        return False
+    video = output / entry["video"]
+    return video.is_file() and video.stat().st_size > 0
+
+
+def new_video_path(videos_dir: Path, name: str, render_signature: str) -> Path:
+    """Never overwrite an existing video, including one with a lost manifest."""
+    stem = f"{name}__{render_signature[:12]}"
+    destination = videos_dir / f"{stem}.mp4"
+    version = 2
+    while destination.exists():
+        destination = videos_dir / f"{stem}_{version}.mp4"
+        version += 1
+    return destination
+
+
+def write_manifest(path: Path, entries: list[dict], history: list[dict]) -> None:
+    temporary = path.with_suffix(".json.tmp")
+    temporary.write_text(
+        json.dumps({"videos": entries, "history": history}, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    temporary.replace(path)
+
+
 def render_clip(clip: Clip, character: str, frames_dir: Path, args, share_with: list[Path]) -> str:
     """Run Blender for one clip. Returns an error string, empty on success."""
     if frames_dir.exists():
@@ -556,6 +657,8 @@ def render_clip(clip: Clip, character: str, frames_dir: Path, args, share_with: 
     command = [
         str(BLENDER),
         "--background",
+        "--python-exit-code",
+        "1",
         "--python",
         str(ROOT / "scripts/render_mmd_compare.py"),
         "--",
@@ -582,8 +685,32 @@ def render_clip(clip: Clip, character: str, frames_dir: Path, args, share_with: 
         args.camera,
         "--follow-smooth",
         str(args.follow_smooth),
+        "--upper-smooth",
+        str(args.upper_smooth),
+        "--foot-contact",
+        args.foot_contact,
+        "--arm-clearance-degrees",
+        str(args.arm_clearance_degrees),
+        "--faithful" if args.faithful else "--polish",
+        "--root-motion", args.root_motion,
     ]
-    if not args.no_spring:
+    if args.floor_z is not None:
+        command += ["--floor-z", str(args.floor_z)]
+    if args.physics == "bullet":
+        command += [
+            "--bullet",
+            "--bullet-substeps", str(args.bullet_substeps),
+            "--bullet-iterations", str(args.bullet_iterations),
+            "--bullet-settle", str(args.bullet_settle),
+            "--bullet-damping", args.bullet_damping,
+            "--bullet-cloth-slack", str(args.bullet_cloth_slack),
+            "--bullet-cloth-linear-slack", str(args.bullet_cloth_linear_slack),
+        ]
+        if args.bullet_hand_colliders:
+            command.append("--bullet-hand-colliders")
+        if getattr(args, "physics_profile", None) is not None:
+            command += ["--physics-profile", str(args.physics_profile)]
+    elif args.physics == "spring":
         command.append("--spring")
     for path in share_with:
         command += ["--frame-motion", str(path)]
@@ -707,6 +834,16 @@ def write_page(output: Path, entries: list[dict], skipped: list[Clip], title: st
             f"activity {score.get('activity', 0):.2f}",
             f"penalty {score.get('penalty', 0):.2f}",
         ]
+        physics = entry.get("render", {}).get("settings", {}).get("physics", "unrecorded")
+        bits.append(f"physics: {physics}")
+        settings = entry.get("render", {}).get("settings", {})
+        if "foot_contact" in settings:
+            bits.append(f"foot contact: {settings['foot_contact']}")
+        if "upper_smooth" in settings:
+            window = settings["upper_smooth"]
+            bits.append(f"upper-body smoothing: {window}f" if window else "upper-body smoothing: off")
+        if settings.get("arm_clearance_degrees"):
+            bits.append(f"arm clearance: {settings['arm_clearance_degrees']:g}°")
         flags: list[str] = []
         if entry.get("trim_reason"):
             flags.append(entry["trim_reason"])
@@ -757,9 +894,11 @@ def write_page(output: Path, entries: list[dict], skipped: list[Clip], title: st
 
     lede = (
         f"{len(entries)} video(s). Cel shaded with each model's own toon ramp and sphere maps, "
-        "outlined, floor shadow, and spring bones baked on every bone the PMX marks as dynamic. "
-        "Videos load on demand — click one to play. Orange badges mark problems measured in the "
-        "<em>source motion</em>, not introduced by the retarget: they are left in the render on purpose."
+        "outlined, with a floor shadow. Each card records its physics mode; older videos without "
+        "render settings are marked unrecorded. "
+        "Videos load on demand — click one to play. Orange badges describe the "
+        "<em>source motion</em>; they do not measure the rendered character's contact. "
+        "Each card records whether optional contact correction or upper-body smoothing was applied."
     )
     (output / "index.html").write_text(
         _PAGE.format(
@@ -776,7 +915,7 @@ def write_page(output: Path, entries: list[dict], skipped: list[Clip], title: st
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Validate, score, render and publish a SMPL-X dataset on an MMD character.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -814,9 +953,9 @@ def main() -> None:
         default=0,
         help=(
             "Box-filter width in frames for the source rotations and root path. "
-            "0 or 1 leaves the motion untouched; 5 cuts the fit's jitter by 62%% "
-            "and moves no joint by more than 1.8 deg. Off by default: it edits the "
-            "motion, and that is the user's call on a figure meant as evidence"
+            "0 or 1 leaves the motion untouched; larger windows must be odd. "
+            "Off by default: it edits the motion, so inspect the resulting video "
+            "before using it as evidence"
         ),
     )
     parser.add_argument(
@@ -830,6 +969,14 @@ def main() -> None:
             "against a 12.9 cm radius. Only the arm below the shoulder moves"
         ),
     )
+    parser.add_argument("--upper-smooth", type=int, default=0,
+                        help="0 disables; 3 smooths the upper body only, capped at 2 deg per LOCAL joint")
+    parser.add_argument("--foot-contact", choices=("on", "off"), default="off",
+                        help="Optional bounded contact correction using the character's shoes")
+    parser.add_argument("--floor-z", type=float, default=None,
+                        help="Explicit world-space floor height in metres")
+    parser.add_argument("--arm-clearance-degrees", type=float, default=0.0,
+                        help="Optional 0..4 degree upper-arm clearance; only validated for walking, not recommended for dance")
     parser.add_argument("--min-frames", type=int, default=20)
     parser.add_argument("--max-penalty", type=float, default=0.0, help="0 disables the quality gate")
     parser.add_argument("--output", type=Path, default=ROOT / "converted/dataset_videos")
@@ -862,7 +1009,31 @@ def main() -> None:
         action="store_true",
         help="Name videos <task>_<clip>_<character> only, without the caption fragment",
     )
-    parser.add_argument("--no-spring", action="store_true")
+    physics = parser.add_mutually_exclusive_group()
+    physics.add_argument(
+        "--physics", choices=("bullet", "spring", "none"), default=argparse.SUPPRESS,
+        help="Default: bullet (PMX collision bodies). Spring approximates motion without collisions",
+    )
+    physics.add_argument("--bullet", dest="physics", action="store_const", const="bullet", default=argparse.SUPPRESS,
+                         help="Alias for --physics bullet")
+    physics.add_argument("--spring", dest="physics", action="store_const", const="spring", default=argparse.SUPPRESS,
+                         help="Alias for --physics spring")
+    physics.add_argument("--no-spring", dest="physics", action="store_const", const="none", default=argparse.SUPPRESS,
+                         help="Legacy alias for --physics none (disable all secondary physics)")
+    parser.add_argument("--bullet-substeps", type=int, default=12)
+    parser.add_argument("--physics-profile", type=Path, default=None,
+                        help="Hash-bound character physics profile; its contents participate in render caching")
+    parser.add_argument("--bullet-iterations", type=int, default=24)
+    parser.add_argument("--bullet-cloth-slack", type=float, default=0.,
+                        help="Optional angular slack in degrees for originally locked skirt joint axes")
+    parser.add_argument("--bullet-cloth-linear-slack", type=float, default=0.,
+                        help="Optional 0..0.01 metre travel for originally locked skirt joint axes; validate per character")
+    parser.add_argument("--bullet-hand-colliders", action="store_true",
+                        help="Fit extra palm/finger collision hulls that interact with skirt bodies")
+    parser.add_argument("--bullet-settle", type=int, default=30,
+                        help="Settle frames simulated before the first rendered frame")
+    parser.add_argument("--bullet-damping", choices=("pmx", "legacy-inverted"), default="legacy-inverted",
+                        help="PMX damping or the inverted setting used by the existing showcase renders")
     parser.add_argument(
         "--expression",
         default="soft_smile",
@@ -872,9 +1043,40 @@ def main() -> None:
             "and the irises disappear, which reads as squinting rather than smiling"
         ),
     )
+    pose_style = parser.add_mutually_exclusive_group()
+    pose_style.add_argument("--faithful", dest="faithful", action="store_true", default=True,
+                            help="Default: retain source rotations without artistic pose polish")
+    pose_style.add_argument("--polish", dest="faithful", action="store_false",
+                            help="Explicitly enable artistic shoulder/arm/twist changes")
+    parser.add_argument("--root-motion", choices=("source", "legacy-scaled"), default="source",
+                        help="Preserve source root metres, or explicitly replay legacy scaling")
     parser.add_argument("--skeleton", action="store_true", help="Also render the source skeleton panel")
     parser.add_argument("--title", default="")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    args.physics = getattr(args, "physics", "bullet")
+    if args.physics_profile is not None and args.physics != "bullet":
+        parser.error("--physics-profile requires --physics bullet")
+    if args.bullet_substeps < 1 or args.bullet_iterations < 1 or args.bullet_settle < 0:
+        parser.error("Bullet substeps/iterations must be positive and settle frames must be non-negative")
+    if not np.isfinite(args.bullet_cloth_slack) or not 0. <= args.bullet_cloth_slack <= 30.:
+        parser.error("--bullet-cloth-slack must be between 0 and 30 degrees")
+    if not np.isfinite(args.bullet_cloth_linear_slack) or not 0. <= args.bullet_cloth_linear_slack <= .01:
+        parser.error("--bullet-cloth-linear-slack must be between 0 and 0.01 metres")
+    if args.smooth < 0 or (args.smooth >= 2 and args.smooth % 2 == 0):
+        parser.error("--smooth must be 0, 1, or a positive odd window")
+    if args.upper_smooth < 0 or (args.upper_smooth > 0 and args.upper_smooth % 2 == 0):
+        parser.error("--upper-smooth must be 0 or a positive odd frame count")
+    if args.upper_smooth and args.smooth >= 2:
+        parser.error("choose --upper-smooth or legacy --smooth; the legacy filter also edits the root")
+    if args.floor_z is not None and not np.isfinite(args.floor_z):
+        parser.error("--floor-z must be finite")
+    if not np.isfinite(args.arm_clearance_degrees) or not 0.0 <= args.arm_clearance_degrees <= 4.0:
+        parser.error("--arm-clearance-degrees must be finite and between 0 and 4 degrees")
+    return args
+
+
+def main() -> None:
+    args = parse_args()
 
     if not args.data.is_dir():
         raise SystemExit(f"--data {args.data} is not a directory")
@@ -989,37 +1191,25 @@ def main() -> None:
     trim_cache = args.output / "trimmed"
     manifest_path = args.output / "manifest.json"
     entries: list[dict] = []
+    history: list[dict] = []
     if manifest_path.is_file():
-        entries = json.loads(manifest_path.read_text(encoding="utf-8")).get("videos", [])
-    done = {(e["task"], e["clip_id"], e["character"]) for e in entries}
-
-    # Refresh the metrics on videos rendered by an earlier run. Scores come from
-    # the clip, not the render, so when a metric is corrected the page can be
-    # brought up to date without re-rendering hours of video.
-    known = {(clip.task, clip.clip_id): clip for clips in tasks.values() for clip in clips if not clip.error}
-    refreshed = 0
-    for entry in entries:
-        clip = known.get((entry["task"], entry["clip_id"]))
-        if clip is None:
-            continue
-        score = dict(clip.score)
-        score["penetration_cm"] = score.get("ground_penetration_m", 0.0) * 100
-        # Everything here is derived from the clip rather than the render, caption
-        # included, so all of it can go stale when the source or a metric changes.
-        fresh = {
-            "score": score,
-            "frames": clip.frames,
-            "fps": clip.fps,
-            "caption": clip.caption,
-            "trim": clip.trim,
-            "trim_reason": clip.trim_reason,
+        previous = json.loads(manifest_path.read_text(encoding="utf-8"))
+        entries = previous.get("videos", [])
+        history = previous.get("history", [])
+    pipeline_hash = source_fingerprint()
+    if not BLENDER.is_file():
+        raise SystemExit(f"Blender executable missing: {BLENDER}")
+    blender_stat = BLENDER.stat()
+    environments = {
+        character: {
+            "pipeline_sha256": pipeline_hash,
+            "asset": str((ROOT / CHARACTERS[character]).resolve()),
+            "asset_tree_sha256": asset_fingerprint(ROOT / CHARACTERS[character]),
+            "blender": {"path": str(BLENDER.resolve()), "size": blender_stat.st_size,
+                        "mtime_ns": blender_stat.st_mtime_ns},
         }
-        if all(entry.get(key) == value for key, value in fresh.items()):
-            continue
-        entry.update(fresh)
-        refreshed += 1
-    if refreshed:
-        print(f"refreshed metrics on {refreshed} previously rendered video(s)")
+        for character in characters
+    }
 
     title = (
         args.title
@@ -1039,25 +1229,35 @@ def main() -> None:
     )
     for clip in selection:
         other = compare_by_id.get(clip.clip_id) if args.compare else None
+        if other is not None and not np.isclose(other.fps, clip.fps):
+            failure = f"{clip.task}/{clip.clip_id}: comparison frame rates differ ({clip.fps:g} vs {other.fps:g})"
+            print(f"      skipped: {failure}; resample explicitly before comparing")
+            failures.append(failure)
+            frames_left -= (clip.frames + other.frames) * len(characters)
+            continue
         for character in characters:
             index += 1
             key = (clip.task, clip.clip_id, character)
             name = video_name(clip, character, slug=not args.no_caption_in_name)
-            destination = videos_dir / f"{name}.mp4"
             work = clip.frames + (other.frames if other else 0)
-            # Trust the path recorded in the manifest rather than recomputing it, so a
-            # change to the naming scheme does not silently re-render finished work.
+            provenance = render_provenance(clip, other, character, args, environments[character])
+            render_signature = signature(provenance)
             recorded = next(
                 (
-                    args.output / entry["video"]
+                    entry
                     for entry in entries
                     if (entry["task"], entry["clip_id"], entry["character"]) == key
                 ),
-                destination,
+                None,
             )
-            if key in done and recorded.is_file():
+            if reusable_video(recorded, args.output, render_signature):
+                # Only matching videos receive fresh scores. An old video must not
+                # be relabelled as if it rendered changed source data or settings.
+                recorded["score"] = dict(clip.score)
+                recorded["score"]["penetration_cm"] = clip.score.get("ground_penetration_m", 0.0) * 100
                 frames_left -= work
                 continue
+            destination = new_video_path(videos_dir, name, render_signature)
             eta = ""
             if frames_done:
                 seconds = (time.time() - started) / frames_done * frames_left
@@ -1068,6 +1268,7 @@ def main() -> None:
             )
 
             panels: list[tuple[Path, str]] = []
+            render_reports: list[dict] = []
             targets = [(other, args.compare), (clip, clip.task)] if other else [(clip, clip.task)]
             failed = next(
                 (
@@ -1097,6 +1298,21 @@ def main() -> None:
                 )
                 if failed:
                     break
+                try:
+                    report = json.loads((frames_dir / "info.json").read_text(encoding="utf-8"))
+                except (OSError, ValueError) as exc:
+                    failed = f"could not read renderer report: {exc}"
+                    break
+                retained = None
+                derived_motion = frames_dir / "processed-motion.npz"
+                if derived_motion.is_file():
+                    retained = args.output / "processed" / f"{destination.stem}_{label.replace('/', '-')}.npz"
+                    retained.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(derived_motion, retained)
+                render_reports.append({
+                    "task": label, "info": report,
+                    "retained_processed_motion": str(retained) if retained else None,
+                })
                 panels.append((frames_dir / "character" / args.view, f"{label}  {target.frames}f"))
             if failed:
                 print(f"      render failed: {failed.splitlines()[0]}")
@@ -1120,6 +1336,16 @@ def main() -> None:
 
             score = dict(clip.score)
             score["penetration_cm"] = score.get("ground_penetration_m", 0.0) * 100
+            # Archive the previous record only after the new video encodes. Its
+            # file remains untouched, and failed rerenders keep the old page valid.
+            history.extend(
+                entry for entry in entries
+                if (entry["task"], entry["clip_id"], entry["character"]) == key
+            )
+            entries = [
+                entry for entry in entries
+                if (entry["task"], entry["clip_id"], entry["character"]) != key
+            ]
             entries.append(
                 {
                     "task": clip.task,
@@ -1136,19 +1362,19 @@ def main() -> None:
                     "trim_reason": clip.trim_reason,
                     "compare_trim": other.trim if other else None,
                     "score": score,
+                    "render_signature": render_signature,
+                    "render": provenance,
+                    "renderer_reports": render_reports,
                 }
             )
-            done.add(key)
-            manifest_path.write_text(
-                json.dumps({"videos": entries}, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
+            write_manifest(manifest_path, entries, history)
             write_captions(args.output, entries)
             write_page(args.output, entries, skipped, title, width * (2 if other else 1) // 2 + 130)
 
     shutil.rmtree(frames_root, ignore_errors=True)
     # Written unconditionally so a run that only refreshed metrics still persists
     # them, rather than leaving the page and the manifest disagreeing.
-    manifest_path.write_text(json.dumps({"videos": entries}, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_manifest(manifest_path, entries, history)
     write_captions(args.output, entries)
     write_page(args.output, entries, skipped, title, width * (2 if args.compare else 1) // 2 + 130)
     print(f"\n{len(entries)} video(s) in {args.output}")
@@ -1158,6 +1384,7 @@ def main() -> None:
         print(f"\n{len(failures)} failure(s):")
         for line in failures[:20]:
             print(f"  {line}")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

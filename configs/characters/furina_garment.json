@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "profile_id": "furina-garment-compliance-v1",
+  "asset_sha256": "b975976e65769d93a84bc78be865398af3dea6feff14a9c181413552fbae74a1",
+  "import_scale": 0.08,
+  "bullet": {
+    "substeps": 12,
+    "iterations": 24,
+    "settle_frames": 30,
+    "damping_mode": "pmx",
+    "cloth_angular_slack_degrees": 0,
+    "cloth_linear_slack_m": 0
+  },
+  "joint_rules": [
+    {
+      "bone_prefix": "HB1_",
+      "min_angular_half_range_degrees": 15,
+      "locked_linear_half_range_m": 0.001
+    }
+  ],
+  "visual_verified": [
+    {
+      "motion_sha256": "15c2acd608c9b972ba21502917dfdb0b6246e2194022de5a8dc4987ddc4aee38",
+      "motion_id": "004162",
+      "frame_start": 1,
+      "frames": 152,
+      "fps": 50.0,
+      "views": [
+        "three_quarter"
+      ],
+      "display_context": "native SOMA77, faithful, source root, source fingers, no pose polish / foot IK / arm avoidance / smoothing / expression; full 152 consecutive rendered frames inspected by two agents",
+      "evidence": "outputs/characters-2026-10-23/furina/walk-hb1-bend15/character.mp4",
+      "notes": "Rear-coat walk snap is reduced; layered/stiff construction remains. Dance checked for regression, not claimed superior to baseline."
+    },
+    {
+      "motion_sha256": "a0999841abf0e59ba7baa47cf72c07529250eb249f84cb3cdcf2b20c6ea6ccf3",
+      "motion_id": "100948",
+      "frame_start": 1,
+      "frames": 152,
+      "fps": 50.0,
+      "views": [
+        "three_quarter"
+      ],
+      "display_context": "native SOMA77, faithful, source root, source fingers, no pose polish / foot IK / arm avoidance / smoothing / expression; full 152 consecutive rendered frames inspected by two agents",
+      "evidence": "outputs/characters-2026-10-23/furina/dance-hb1-bend15/character.mp4",
+      "notes": "Rear-coat walk snap is reduced; layered/stiff construction remains. Dance checked for regression, not claimed superior to baseline."
+    }
+  ],
+  "notes": "Furina HB1 internal joints only; root/cross-chain pins, damping, body, source fingers preserved. Existing ranges wider than 30 degrees preserved; locked translation gets 1 mm solver allowance. More compliant rear-coat walk outline, with remaining stiff layered construction."
+}

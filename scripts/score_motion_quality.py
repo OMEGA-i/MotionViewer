@@ -1,15 +1,16 @@
 """Rank SMPL-X clips by how well they will survive retargeting. Local helper.
 
-Retargeting is exact, so whatever the source does, the character does. That makes
-source quality the ceiling on how a result looks, and the two faults seen so far
-are not visible in a still frame:
+These measurements describe the source skeleton before character proportions,
+retarget polish, or physics. They can reveal motion worth inspecting, but do not
+measure rendered-character foot contact or prove that an intentional gesture is
+an error. Two temporal diagnostics are not visible in a still frame:
 
-- **angular velocity** past what a body can do. One clip turns at 80 deg per
+- **angular velocity** that may read as a snap. One clip turns at 80 deg per
   frame at 30 fps, 2415 deg/s, which reads as a violent snap on a character with
   hair and a skirt.
-- **jitter**: high-frequency wobble in a joint's rotation. The spine is usually
-  the worst offender and it carries a rigid head, which is what "the head keeps
-  shaking" turns out to be.
+- **rotation-vector changes**: sensitive to alternating wobble, including changes
+  of direction at constant speed. Genuine acceleration also contributes, so a
+  high value needs visual inspection rather than automatic smoothing.
 
 Also reported, because they break a shot in their own way: foot skating (a planted
 foot sliding) and ground penetration.
@@ -32,6 +33,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from motionviewer.core.motion_smoothing import UPPER_BODY_JOINTS, angular_velocity_vectors  # noqa: E402
 from motionviewer.core.smplx_fk import (  # noqa: E402
     SMPLX_BODY22_NAMES,
     rodrigues,
@@ -40,23 +42,20 @@ from motionviewer.core.smplx_fk import (  # noqa: E402
 
 # Joints whose wobble is most visible on a character: the spine carries the head,
 # and the collars carry the arms.
-_JITTER_JOINTS = ("spine1", "spine2", "spine3", "neck", "left_collar", "right_collar")
+_JITTER_JOINTS = UPPER_BODY_JOINTS
 _ANKLES = ("left_ankle", "right_ankle")
 _FEET = ("left_foot", "right_foot")
 
 
-def _rotation_steps(axis_angle: np.ndarray) -> np.ndarray:
-    """Per-frame rotation magnitude of one joint, in degrees."""
-    matrices = rodrigues(axis_angle)
-    steps = np.empty(max(len(matrices) - 1, 0), dtype=np.float64)
-    for index in range(1, len(matrices)):
-        relative = matrices[index - 1].T @ matrices[index]
-        steps[index - 1] = np.degrees(np.arccos(np.clip((np.trace(relative) - 1.0) / 2.0, -1.0, 1.0)))
-    return steps
-
-
 def score_clip(payload: dict, fps: float = 30.0) -> dict:
-    """Motion-quality metrics for one clip. Lower ``penalty`` is better."""
+    """Motion diagnostics for one clip, with a heuristic ``penalty`` ranking.
+
+    ``jitter_deg`` is the mean norm of successive *signed rotation-vector*
+    differences, in degrees per frame squared. It detects alternating direction
+    even when speed is constant. It also responds to intentional acceleration,
+    so it is a diagnostic, not proof that the source motion needs smoothing.
+    The legacy penalty weights have not been visually recalibrated for version 2.
+    """
     global_orient = np.asarray(payload["global_orient"], dtype=np.float64)
     body_pose = np.asarray(payload["body_pose"], dtype=np.float64).reshape(len(global_orient), 21, 3)
     joints = source_to_blender(np.asarray(payload["joints22"], dtype=np.float64))
@@ -69,15 +68,17 @@ def score_clip(payload: dict, fps: float = 30.0) -> dict:
     jitter = 0.0
     jitter_joint = ""
     for name, column in index_of.items():
-        steps = _rotation_steps(poses[:, column])
-        if len(steps) == 0:
+        vectors = angular_velocity_vectors(rodrigues(poses[:, column]), fps)
+        if len(vectors) == 0:
             continue
-        velocity = float(steps.max()) * fps
+        velocity = float(np.degrees(np.linalg.norm(vectors, axis=-1)).max())
         if velocity > worst_velocity:
             worst_velocity, worst_velocity_joint = velocity, name
-        if name in _JITTER_JOINTS and len(steps) > 2:
-            # Second difference isolates shake from smooth acceleration.
-            value = float(np.abs(np.diff(steps)).mean())
+        if name in _JITTER_JOINTS and len(vectors) > 1:
+            # Taking speed magnitudes first loses direction: +a,-a,+a has
+            # constant speed yet shakes at every frame. Compare signed vectors
+            # in the same parent coordinate system before taking their norms.
+            value = float(np.degrees(np.linalg.norm(np.diff(vectors, axis=0), axis=-1)).mean()) / fps
             if value > jitter:
                 jitter, jitter_joint = value, name
 
@@ -124,7 +125,9 @@ def score_clip(payload: dict, fps: float = 30.0) -> dict:
     speed = float(np.linalg.norm(np.diff(relative[:, limbs], axis=0), axis=-1).mean()) * fps
     travel = float(np.linalg.norm(joints[-1, index_of["pelvis"], :2] - joints[0, index_of["pelvis"], :2]))
 
-    # Weights chosen so that each term is ~1.0 at the point it becomes visible:
+    # Legacy heuristic weights; the signed-vector jitter correction changes
+    # their scale, so the 0.5-degree cutoff needs visual recalibration.
+    # Previously chosen so that each term is ~1.0 at the point it becomes visible:
     # 600 deg/s is a fast but legible turn, 0.5 deg of jitter shows on a head,
     # 0.35 m/s of skate reads as sliding, and a 10 cm dip puts a foot visibly
     # through the floor.  Sinking has a 3 cm deadband because the measured median
@@ -138,7 +141,10 @@ def score_clip(payload: dict, fps: float = 30.0) -> dict:
         + max(0.0, penetration - 0.03) / 0.07
     )
     return {
+        "metric_version": 2,
+        "jitter_metric": "signed_rotation_increment_difference",
         "frames": total,
+        "fps": float(fps),
         "limb_reach_m": reach,
         "limb_speed_m_s": speed,
         "root_travel_m": travel,
@@ -146,6 +152,7 @@ def score_clip(payload: dict, fps: float = 30.0) -> dict:
         "max_angular_velocity_deg_s": worst_velocity,
         "max_angular_velocity_joint": worst_velocity_joint,
         "jitter_deg": jitter,
+        "jitter_acceleration_deg_s2": jitter * fps * fps,
         "jitter_joint": jitter_joint,
         "foot_skate_m_s": skate,
         "ground_penetration_m": penetration,
@@ -179,7 +186,8 @@ def main() -> None:
             continue
         with np.load(motion, allow_pickle=False) as payload:
             data = {key: payload[key] for key in ("global_orient", "body_pose", "joints22")}
-        score = score_clip(data)
+            fps = float(payload["fps"]) if "fps" in payload else 30.0
+        score = score_clip(data, fps=fps)
         if score["frames"] < args.min_frames:
             continue
         rec = clip.name.replace("test_", "")

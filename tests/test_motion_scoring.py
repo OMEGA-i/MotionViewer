@@ -14,6 +14,7 @@ the code, so each test pins the specific failure mode:
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -25,9 +26,10 @@ for extra in (ROOT / "src", ROOT / "scripts"):
     if str(extra) not in sys.path:
         sys.path.insert(0, str(extra))
 
+import score_motion_quality  # noqa: E402
 from score_motion_quality import score_clip  # noqa: E402
 
-from motionviewer.core.smplx_fk import SMPLX_BODY22_NAMES  # noqa: E402
+from motionviewer.core.smplx_fk import SMPLX_BODY22_NAMES, axis_angle_from_rotations, rodrigues  # noqa: E402
 
 INDEX = {name: position for position, name in enumerate(SMPLX_BODY22_NAMES)}
 FPS = 30.0
@@ -128,3 +130,70 @@ def test_either_foot_can_be_the_one_skating():
     assert score_clip(left, fps=FPS)["foot_skate_m_s"] == pytest.approx(
         score_clip(right, fps=FPS)["foot_skate_m_s"], abs=1e-9
     )
+
+
+@pytest.mark.parametrize("joint", ["spine1", "head"])
+def test_equal_speed_alternating_rotation_is_not_mistaken_for_no_jitter(joint):
+    payload = _clip(40)
+    pose = payload["body_pose"].reshape(40, 21, 3)
+    pose[:, INDEX[joint] - 1, 0] = np.radians(np.tile([1.0, -1.0], 20))
+    score = score_clip(payload, fps=FPS)
+    # Steps alternate -2 and +2 degrees; the signed difference is 4, not 0.
+    assert score["jitter_deg"] == pytest.approx(4.0)
+    assert score["jitter_joint"] == joint
+    assert score["max_angular_velocity_deg_s"] == pytest.approx(60.0)
+    assert score["jitter_acceleration_deg_s2"] == pytest.approx(3600.0)
+    assert score["metric_version"] == 2
+
+
+def test_changes_of_rotation_axis_are_visible_even_at_constant_speed():
+    payload = _clip(30)
+    matrices = [np.eye(3)]
+    for index in range(29):
+        step = np.zeros(3)
+        step[index % 2] = np.radians(2.0)
+        matrices.append(rodrigues(step) @ matrices[-1])
+    pose = payload["body_pose"].reshape(30, 21, 3)
+    pose[:, INDEX["neck"] - 1] = axis_angle_from_rotations(np.array(matrices))
+    score = score_clip(payload)
+    assert score["jitter_deg"] == pytest.approx(np.sqrt(8.0), abs=1e-10)
+    assert score["jitter_joint"] == "neck"
+
+
+def test_constant_angular_velocity_crossing_the_pi_branch_has_no_jitter():
+    payload = _clip(40)
+    pose = payload["body_pose"].reshape(40, 21, 3)
+    pose[:, INDEX["spine2"] - 1, 2] = np.radians(np.arange(40) * 2.0 + 170)
+    # Store shortest axis-angle coordinates, including the +pi -> -pi wrap.
+    pose[:] = axis_angle_from_rotations(rodrigues(pose))
+    score = score_clip(payload)
+    assert score["jitter_deg"] < 1e-10
+    assert score["max_angular_velocity_deg_s"] == pytest.approx(60.0)
+
+
+def test_per_second_measurements_follow_the_actual_frame_rate():
+    payload = _clip(40)
+    pose = payload["body_pose"].reshape(40, 21, 3)
+    pose[:, INDEX["spine1"] - 1, 0] = np.radians(np.tile([1.0, -1.0], 20))
+    slow = score_clip(payload, fps=30)
+    fast = score_clip(payload, fps=60)
+    assert fast["jitter_deg"] == pytest.approx(slow["jitter_deg"])
+    assert fast["jitter_acceleration_deg_s2"] == pytest.approx(4 * slow["jitter_acceleration_deg_s2"])
+    assert fast["max_angular_velocity_deg_s"] == pytest.approx(2 * slow["max_angular_velocity_deg_s"])
+
+
+def test_scoring_command_reads_fps_from_the_motion_file(tmp_path, monkeypatch):
+    motion_dir = tmp_path / "clips/test_rec_1/gt"
+    motion_dir.mkdir(parents=True)
+    payload = _clip(40)
+    payload["global_orient"][:, 2] = np.radians(np.arange(40) * 2.0)
+    np.savez(motion_dir / "smplx_params.npz", **payload, fps=50.0)
+    output = tmp_path / "scores.json"
+    monkeypatch.setattr(sys, "argv", [
+        "score_motion_quality.py", "--clips", str(tmp_path / "clips"),
+        "--output", str(output), "--min-frames", "1",
+    ])
+    score_motion_quality.main()
+    measured = json.loads(output.read_text())["clips"][0]
+    assert measured["fps"] == 50.0
+    assert measured["max_angular_velocity_deg_s"] == pytest.approx(100.0)

@@ -14,6 +14,107 @@ file against the input contract below, scores the motion, renders the selection,
 and writes `index.html` next to the videos. It is resumable, deletes frames once
 they are encoded, and collects failures rather than stopping on the first one.
 
+## Physics and safe resume
+
+The batch path now defaults to **Bullet**, passing `--bullet` to the single-clip
+renderer so it uses the PMX's rigid bodies and collision joints. Choose
+`--physics spring` for the older collision-free approximation or `--physics none`
+to disable secondary physics. `--bullet`, `--spring`, and the legacy `--no-spring`
+are aliases for those three modes; conflicting selections are rejected.
+
+Bullet settings are exposed as `--bullet-substeps 12`, `--bullet-iterations 24`,
+`--bullet-settle 30`, and `--bullet-damping legacy-inverted`. The damping default
+preserves the existing showcase's appearance. `--bullet-damping pmx` uses the
+model's authored damping; the inverted setting is a visual adjustment, not a
+validated translation of MMD's damping convention.
+
+For the current demo dataset, start with one selected clip:
+
+```bash
+uv run python scripts/visualize_dataset.py \
+  --data "/Users/a26044/Motion data/t2m_demo400/smplx" \
+  --task active --clips 100948 --character yoimiya \
+  --output converted/demo_bullet
+```
+
+Each video in `manifest.json` records the resolved render settings, source and
+comparison input hashes, character-directory content hash (including textures),
+renderer and local `mmd_tools` source hash, and Blender executable
+path/size/modification time. The
+single-clip renderer's actual `info.json` reports are retained in
+`renderer_reports`, including the physics result, before temporary frames are
+removed. Other external Blender addons and system libraries are not fully fingerprinted;
+after changing those, use a new output directory to force a fresh render.
+
+Resume requires both a non-empty MP4 and a matching render signature. Changing
+physics, camera, expression, preprocessing, input files, character files, or
+renderer code therefore cannot silently reuse an old video. Legacy records with
+no signature are rerendered. New files have a signature suffix and never
+overwrite an existing MP4. Once the new render succeeds, its record replaces the
+old one on the page and the previous record is retained under `history` in the
+manifest; the previous video remains on disk. If rerendering fails, the previous
+page entry and metadata stay intact. Source changes also invalidate the
+preprocessed motion cache. Failed jobs are listed at the end and return a failing
+exit status.
+
+Comparison clips must have the same frame rate. Different rates are rejected
+instead of playing one panel at the other's speed; resample explicitly first.
+
+## Optional garment and arm clearance settings
+
+The verified Yoimiya walk/dance garment candidate uses `--physics bullet
+--bullet-damping pmx --bullet-cloth-slack 10`. The latter opens only originally
+locked garment angular axes, preserving existing ranges and translation locks.
+This setting is not approved for every character. `--bullet-hand-colliders` was
+an experiment and remains off in the accepted garment review.
+
+`--arm-clearance-degrees 4` adds a small outward shoulder adjustment (range 0–4,
+default 0), fading near lateral arm extension and preserving wrist world facing.
+It runs after foot contact and before garment physics; root and leg keys stay
+unchanged. It reduces forearm/skirt contact in Yoimiya walking 004162, but worsened
+a dance sample, so use it only after matched visual review. These settings and
+implementation changes participate in cache signatures; `info.arm_clearance`
+records realized changes. Original NPZ files are never rewritten.
+
+## Optional contact and upper-body review
+
+`--foot-contact on` enables the shoe-based contact pass. It defaults to `off`:
+the current cross-character checks still include about 8 mm contact residual on
+Furina, so it is not a universal fix. The pass keeps root XY travel but can change
+leg rotations and root height within its bounds. `--floor-z Z` fixes the floor
+in world-space metres and works with either contact mode.
+
+`--upper-smooth 3` enables the conservative upper-body filter; `0` is the default.
+It filters spine, neck, head and collars on SO(3), with no change to root pose,
+root translation or lower-body rotations. The cap is **2 degrees per local
+joint**, not 2 degrees over the whole head/arm chain. Global deviations and
+signed angular-velocity changes are recorded separately. Larger odd windows are
+available but can soften intentional dance beats. This SMPL-X body-22 option
+cannot be combined with the older `--smooth` filter, which also changes the root.
+
+```bash
+uv run python scripts/visualize_dataset.py \
+  --data "/Users/a26044/Motion data/t2m_demo400/smplx" \
+  --task active --clips 100948 --character yoimiya \
+  --foot-contact on --upper-smooth 3 \
+  --output converted/demo_contact_smoothing
+```
+
+Both options and `--floor-z` are included in the render signature. Their actual
+reports appear in each panel's `renderer_reports[].info.foot_contact` and
+`.upper_smoothing`. Source files are never overwritten. The single-clip renderer
+writes a complete `processed-motion.npz` with source SHA-256 and report metadata;
+the batch retains this under `<output>/processed/` before deleting temporary
+frames, with its surviving location in `retained_processed_motion`.
+
+For judging a before/after edit, use the single-clip renderer's
+`--match-camera baseline/info.json` on the second run and use the same explicit
+`--floor-z` in both. This replays each frame's camera and requires matching views,
+frame counts, resolution and fps. `--frame-motion` provides a shared framing hull
+for different source clips, but does not guarantee identical moving camera paths;
+`--match-camera` is the comparison control for edits of the same motion.
+See [the retarget review switches](retarget.md#optional-contact-and-upper-body-passes-2026-10-22).
+
 ## Input contract
 
 A clip is one `.npz`, loadable with `allow_pickle=False`, holding four arrays:
@@ -28,16 +129,17 @@ A clip is one `.npz`, loadable with `allow_pickle=False`, holding four arrays:
 `fps` is read if present and assumed to be 30 otherwise. `caption` is picked up
 for the page. Everything else in the file is ignored.
 
-Three conventions have to match, and all three are checked:
+The following conventions must match. Validation checks array shapes, finite
+values and frame rate; it cannot infer the intended joint order or up axis:
 
-- **Joint order** is SMPL-X body-22, as listed in `SMPLX_BODY22_NAMES`. The check
-  is that every bone in `SMPLX_BODY22_PARENTS` holds a constant length over the
-  clip; a permuted order shows up immediately as a limb that changes length.
+- **Joint order** is SMPL-X body-22, as listed in `SMPLX_BODY22_NAMES`.
+  Bone-length checks can help diagnose an incorrect export, but are not currently
+  part of the batch validator.
 - **The source space is Y-up**, in metres, with the feet near `Y = 0`.
   `_SOURCE_TO_BLENDER` maps `(x, y, z)` to `(x, -z, y)`.
 - **`joints22` is required**, not optional. The rest skeleton is recovered from
-  it by `recover_rest_offsets`, and the height ratio that scales root translation
-  onto a stylised character comes from that skeleton. No SMPL-X model weights are
+  it by `recover_rest_offsets`, and the leg-chain ratio that scales root translation
+  onto a stylised character comes from that skeleton (height is a fallback). No SMPL-X model weights are
   loaded, so joint positions cannot be derived from the pose parameters alone.
 
 ### Layout
@@ -147,8 +249,9 @@ both tracks pass through the same 77-joint → SMPL-X fit, whose residual is 6.5
 mm per frame. That is the head wobble visible in the renders, and it is a property
 of the fit, not of the generator.
 
-Metrics are recomputed on every run and written back over the entries already in
-`manifest.json`, so correcting a metric refreshes the page without re-rendering.
+Metrics are recomputed on every run. Matching reused videos receive updated
+scores; videos with changed inputs or render settings keep their recorded
+metadata until a replacement render succeeds.
 
 ## Image quality
 
@@ -285,7 +388,16 @@ heading is averaged over both clips of the pair, so the two sides stay the same
 view. `--views` accepts it anywhere a preset name goes, including through
 `visualize_dataset.py --view`.
 
-## Optional smoothing (`--smooth N`, off by default)
+## Legacy smoothing (`--smooth N`, off by default)
+
+**Metric correction (2026-10-22):** the historical numbers below were generated
+before the signed-vector metric fix. The old score differentiated unsigned
+rotation speeds and missed equal-speed back-and-forth jitter. Version 2 compares
+the rotation vectors in a common parent coordinate system and records
+`metric_version: 2`, `jitter_deg` (degrees per frame squared), and
+`jitter_acceleration_deg_s2`. Genuine acceleration also contributes. Old percentage
+reductions and penalty cutoffs are not a validated quality bar for this metric.
+For contact-preserving review, prefer the opt-in `--upper-smooth` described above.
 
 `--smooth 5` box-filters the **torso** rotations — pelvis, the three spine
 segments, neck, head and both collars — plus the root path, over 5 frames.
@@ -296,10 +408,10 @@ on purpose and filtering it clips the throw: extending the filter to every joint
 bought no extra jitter reduction (63% either way) while tripling how far the pose
 moved (p99 3.54° against 1.21°, worst 9.67° against 4.74°).
 
-`joints22` is left byte-identical. The MMD solve reads bone *orientation* from the
-SMPL-X rotations and never reads a frame origin — the root path comes from
-`transl` — so positions do not drive the character at all, and rebuilding them by
-forward kinematics would move a wrist up to 100 mm for no visible effect.
+The legacy filter leaves `joints22` unchanged, although retarget calibration and
+camera framing still read those positions. This can leave the two source
+descriptions inconsistent. The new `--upper-smooth` path synchronizes upper-body
+joint positions while preserving per-frame bone lengths and the lower body.
 
 Measured on the 39 `picks38/gt` clips:
 
@@ -310,15 +422,15 @@ Measured on the 39 `picks38/gt` clips:
 | 5 | 0.163° | 63% | 0.00° / 1.21° / 4.74° |
 | 7 | 0.140° | 69% | 0.00° / 1.87° / 8.40° |
 
-5 frames at 30 fps removes content above about 7.5 Hz, which voluntary human
-motion does not reach, so what the filter takes out is fit noise rather than
-motion.
+The moving average attenuates high frequencies; this alone does not establish
+that the removed content is fitting noise. Sharp voluntary motion can also be
+altered, which is why the new review filter limits the local angular departure.
 
 **What is not established.** The 63% is a reduction in a *source-data* metric —
 the second difference of each joint's local rotation. Whether it is visible is a
 separate question, and the one attempt to measure it in the rendered image was
 inconclusive: tracking the head-region centroid across
-`outputs/ab_smooth/smoothing_ab.mp4` gives a 3% drop at the median and 28% at p90,
+`outputs/archive/2026-10-22/ab_smooth/smoothing_ab.mp4` gives a 3% drop at the median and 28% at p90,
 on an absolute level of 0.28 px, and that measurement is contaminated by the
 ponytail's spring motion, which pose smoothing does not touch. The renders do
 differ (4.1% of pixels on average), but nothing here demonstrates that the filter
@@ -378,6 +490,11 @@ as the figure crossing the frame.
 trajectory itself is the subject.
 
 ### Ground contact
+
+The historical measurements below describe the default contact-off path.
+`--foot-contact on` adds the separate shoe-based correction described above;
+inspect its actual rendered-character report instead of treating source-only
+floor or skate scores as proof of foot contact.
 
 The character hovers, and the shadow gives it away. Probed per frame on a walk,
 the lowest mesh vertex sits at **+3.8 to +7.7 cm** for the whole clip — never near

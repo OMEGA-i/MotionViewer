@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "profile_id": "furina-garment-walk-v2",
+  "asset_sha256": "b975976e65769d93a84bc78be865398af3dea6feff14a9c181413552fbae74a1",
+  "import_scale": 0.08,
+  "bullet": {
+    "substeps": 12,
+    "iterations": 24,
+    "settle_frames": 30,
+    "damping_mode": "pmx",
+    "cloth_angular_slack_degrees": 0,
+    "cloth_linear_slack_m": 0,
+    "neutral_settle": true,
+    "smooth": 1.5
+  },
+  "joint_rules": [
+    {
+      "bone_prefix": "HB1_",
+      "min_angular_half_range_degrees": 15,
+      "locked_linear_half_range_m": 0.001
+    }
+  ],
+  "visual_verified": [],
+  "notes": "Builds on furina-garment-compliance-v1 (same joint_rules). Adds: neutral leg settle; HB1横 side links between rear-coat columns narrowed to 30% of their authored 35-85 mm travel so neighbouring strips move together instead of splitting apart; post-bake 1.5-frame track smoothing to remove frame-to-frame twitch. Measured on walk 004162 (HB1, pelvis frame): neighbour-gap rate p95 8.5 -> 3.9 mm/frame, wobble 9.7 -> 7.6 mm. Pending user visual review.",
+  "side_link_rules": [
+    {
+      "joint_prefix": "HB1横",
+      "linear_scale": 0.3
+    }
+  ]
+}

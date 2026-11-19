@@ -1,125 +1,55 @@
-# Converted characters and their retarget output
+# 保留的渲染结果
 
-Finished, usable artifacts live here: a `.blend` you can open and play, the MP4s
-and review page that show what it does, and the evidence that the retarget is
-correct. `outputs/` is scratch space that any run may overwrite; this directory
-is where a result is kept once it is worth keeping.
+这里保存值得保留的成品与比较证据。最新七角色复查为 2026-10-23，其余为历史保留证据；
+文件存在不代表旧 agent 对它的所有质量判断已经重新验证。
 
-## Nothing here is committed
+## 当前内容
 
-Every file under `converted/` is ignored except this README, for the same reason
-`assets/` is: a converted `.blend` **contains the character**. Textures are
-packed into it and the mesh and weights come straight from the source model, so
-publishing it redistributes that model. Several bundled PMX files explicitly
-prohibit redistribution. Treat a `.blend` here exactly as you would treat the
-`.pmx` it came from, and do not weaken the ignore rules.
+| 路径 | 实际内容 | 用途 |
+| --- | --- | --- |
+| [`character_review_20261023/`](character_review_20261023/index.html) | 七角色、每位两段完整动作的同机位前后对比与源核对记录 | 当前入口；每个角色的改善与残留单独说明 |
+| [`fidelity_review_20261022/`](fidelity_review_20261022/index.html) | 原生 SOMA、修正手指与掌轴后的衣物对照、箱体上方放置与逐帧报告 | 历史保真检查；当时走路长衣摆与箱体自然承托未通过 |
+| [`cloth_props_review_20261022/`](cloth_props_review_20261022/index.html) | 衣摆、手臂避让、箱子和武器前后视频及真实烘焙检查 | 历史适配实验，含明显人体姿态修正，不作为当前保真主展示 |
+| [`contact_review_20261022/`](contact_review_20261022/index.html) | 脚部与上半身去抖前后视频 | 可选接触/平滑适配；改变显示动作，原输入文件保留 |
+| [`review_20261022/`](review_20261022/index.html) | 新批量视频、阻尼对照、验证记录 | 早期重新运行的审阅入口 |
+| [`final/`](final/README.md) | 6 个 MP4、5 张检查图、README | 宵宫、芙宁娜、妮露的舞蹈；彦卿、流萤、青衣的持武器视频 |
+| `final/检查图/` | 六帧检查、布料检查、角色站立合图、握持特写 | 对照旧结果，不能替代新修改后的验证 |
+| `soma_probe/` | 5 个 MP4、5 个文本记录 | SOMA 与 SMPL-X 路线的历史比较证据 |
+| `figures/figures.json` | 历史生成记录 | 当前没有对应的整套论文图文件，不能当成现成图集 |
 
-Motion data is a separate question from the character. `data/examples/` holds
-only clips the project may redistribute; anything from a licensed or internal
-motion set stays out of git too.
+旧文档中的 `showcase/`、`showcase_cast/` 和 `figures/yoimiya/` 当前不在此目录中。
+历史实验视频和截图在 [`outputs/archive/2026-10-22/`](../outputs/archive/2026-10-22/README.md)，
+完整目录说明见 [项目地图](../docs/repo-layout.md)。
 
-## What is here now
+## 新结果如何保存
 
-Generated 2026-08-15 from the `soma_tmr_test_400m_all_fullpose` test set, `gt`
-source, at 800 px portrait with cel shading, outlines, floor shadow and baked
-spring bones:
-
-| | clips | videos | size | failures |
-| --- | --- | --- | --- | --- |
-| `showcase/` (Yoimiya) | 301 of 631 scored | 301 | 159 MB | 0 |
-| `showcase_cast/` (Furina, Silver Wolf) | top 60 each | 120 | 69 MB | 0 |
-| `figures/yoimiya/` | top 20 | 20 filmstrips, 2 trails | — | 0 |
-
-Verified three ways: every clip rendered, contact sheets eyeballed
-(`*/qc/qc_*.png`), and a popping scan over 70 clips found no frame changing more
-than 2.3x its clip's median — well inside choreography.
-
-## Layout
-
-```
-converted/showcase/              The full run. Start here.
-  index.html                     Every clip as a video card, ranked best first
-  videos/<rec_id>_<character>.mp4
-  manifest.json                  Per-clip scores and captions
-  qc/qc_*.png                    One frame per clip, tiled, for a fast scan
-
-converted/figures/<character>/<rec_id>/
-  filmstrip.png                  Publication figure: N frames, transparent
-  trail.png                      Motion overlay, when the root actually travels
-  figures.json                   Which clips got which figure
-
-converted/showcase_cast/         The same top clips on the other characters
-
-converted/<character>/           One-off deliverables for a single clip
-  <character>_<clip>.blend       Retargeted action, textures packed, timeline set
-  review/index.html              MP4s with the source skeleton beside the
-                                 character, plus the decision stills
-  retarget_validation.json       Per-bone, per-frame agreement numbers
-  rig_dump.json                  The rig as imported: hierarchy, rest, weights
-```
-
-Clip order in the showcase is not arbitrary: `scripts/score_motion_quality.py`
-ranks the set cleanest-first and then most-expressive, because the retarget is
-exact and therefore source quality is the ceiling. Clips above the quality bar are
-excluded — on the tested set, 301 of 631 pass. The card for each clip shows its
-peak angular velocity and jitter, so a clip that still looks wrong can be checked
-against its own numbers.
-
-## Adding a character
+先把新一轮结果写到独立目录，例如 `converted/review_20261022/`。
+批量入口生成 MP4、`index.html` 和运行记录；单条渲染入口的帧、诊断和中间文件
+放到对应的 `outputs/<本次任务>/`。检查动作、脚部接触、布料、手部和贴图后再决定
+是否作为成品保留，避免覆盖 `final/` 中用于对照的旧视频。
 
 ```bash
-uv run python scripts/onboard_character.py --archive ~/Downloads/model.zip --name <slug>
+uv run python scripts/visualize_dataset.py \
+  --data "/Users/a26044/Motion data/t2m_demo400/smplx" \
+  --task active --clips 100948 --character yoimiya --physics bullet \
+  --output converted/review_20261022
 ```
 
-Five gates, each of which has caught a real failure: texture filenames verified
-against the PMX's own table, bone mapping, rest-gap sanity against the other rigs,
-the numeric retarget check, and an identity T-pose plus a posed frame. It prints
-`READY` or `REVIEW`. Then add the slug to `CHARACTERS` in
-`scripts/generate_showcase.py`.
+以上批量命令使用 SMPL-X 拟合副本；原生生成展示优先采用项目 README 中的 SOMA 单条入口。
+命令从项目根目录执行，使用本地已存在的数据与角色。
+后台渲染直接启动 Blender，不依赖 Blender-MCP。
+更多入口见 [脚本导航](../scripts/README.md) 和 [数据集渲染说明](../docs/dataset-visualisation.md)。
 
-## Regenerating
+## 本地文件与授权
 
-```bash
-BLENDER=.local/Blender.app/Contents/MacOS/Blender
-ASSET=assets/fbx/pmx/yoimiya/宵宫.pmx
-MOTION=data/examples/smplx_body22_fitted_aa/omegamotiongpt.smplx.npz
+`converted/` 除本 README 外全部被 Git 忽略。这条规则应当保留：转换后的
+`.blend` 会包含角色网格、权重，可能还打包贴图，分享它也就在分享源模型。
+本地部分 PMX 明确禁止再分发；转换格式不会改变原始角色的授权要求。
+视频、图片与模型文件应分别遵循各自适用的许可，不把生成成功视为获准发布。
 
-# 1. The deliverable .blend (add --no-render to skip the still)
-$BLENDER --background --python scripts/render_yoimiya.py -- \
-  --motion $MOTION --asset $ASSET --output outputs/still --still \
-  --save-blend converted/yoimiya/yoimiya_walk.blend
+动作数据也有独立的授权范围。`data/examples/` 仅保存允许再分发的示例；
+内部动作集、模型权重和本地角色不要因目录整理而加入版本控制。
 
-# 2. Correctness numbers. Repeat --motion to check several clips at once.
-$BLENDER --background --python scripts/_validate_mmd_retarget.py -- \
-  --asset $ASSET --motion $MOTION --frames 0 \
-  --output converted/yoimiya/retarget_validation.json
+## 2026-10-22 contact / jitter review
 
-# 3. Source-vs-character comparison, then the review page
-$BLENDER --background --python scripts/render_mmd_compare.py -- \
-  --asset $ASSET --motion $MOTION --output outputs/compare/walk --views three_quarter,front
-uv run python scripts/build_review_page.py \
-  --input outputs/compare --output converted/yoimiya/review
-```
-
-`scripts/_batch_review.py` drives step 3 over a whole directory of clips.
-
-The retarget design, the per-bone transfer modes and what the polish pass trades
-away are documented in [docs/retarget.md](../docs/retarget.md).
-
-## Full generation
-
-```bash
-CLIPS=.local/soma_all/soma_tmr_test_400m_all_fullpose/clips/t2m
-
-uv run python scripts/score_motion_quality.py --clips $CLIPS --meta .local/soma_meta \
-  --output outputs/motion_scores.json
-
-uv run python scripts/generate_showcase.py --clips $CLIPS \
-  --scores outputs/motion_scores.json --character yoimiya --limit 0 \
-  --resolution 800 --output converted/showcase
-```
-
-The generator is resumable — re-running it skips clips whose MP4 already exists,
-so an interrupted run costs nothing. It deletes each clip's frames as soon as they
-are encoded, because keeping them would be about 18 GB. Roughly 80 s per clip at
-800 px, so the full clean set is a few hours.
+`contact_review_20261022/index.html` contains matched-camera walking/jumping foot A/B videos, a separate subtle upper-body smoothing comparison, review records, and experimental prop closeups. Source motions and all earlier outputs remain unchanged.

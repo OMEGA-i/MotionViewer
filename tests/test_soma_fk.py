@@ -124,6 +124,41 @@ def test_rest_frames_are_orthonormal_rotations():
         assert np.linalg.det(block) == pytest.approx(1.0, abs=1e-9)
 
 
+@pytest.mark.parametrize(("side", "sign"), [("Left", 1.), ("Right", -1.)])
+def test_wrist_axis_uses_the_middle_knuckle_not_the_offset_metacarpal_base(side, sign):
+    """A palm's longitudinal axis is wrist→MCP, not wrist→metacarpal base.
+
+    This geometry is independent of the retarget solver. The short, offset base
+    would tilt the old wrist frame by about 18 degrees despite an otherwise flat
+    hand. Finger motion must also not redefine the source wrist's own rotation.
+    """
+    from motionviewer.core.smplx_fk import blender_rotation, source_to_blender
+
+    names = (side + "Hand", side + "HandMiddle1", side + "HandMiddle2", side + "HandMiddle3")
+    parents = np.array([-1, 0, 1, 2])
+    rest = np.array([[0., 0., 0.], [sign * .03, .002, .01], [sign * .09, 0., 0.], [sign * .13, 0., 0.]])
+    rest_blender = source_to_blender(rest)
+    frames = rest_lookat_frames(rest_blender, parents, names)
+    palm_axis = rest_blender[2] - rest_blender[0]
+    palm_axis /= np.linalg.norm(palm_axis)
+    assert frames[0, :3, 1] == pytest.approx(palm_axis, abs=1e-12)
+    base_axis = rest_blender[1] - rest_blender[0]
+    base_axis /= np.linalg.norm(base_axis)
+    assert np.degrees(np.arccos(np.clip(base_axis @ palm_axis, -1., 1.))) > 18.
+
+    local = np.broadcast_to(np.eye(3), (3, 4, 3, 3)).copy()
+    local[1, 1] = rodrigues(np.array([.2, -.3, .1]))  # only the metacarpal moves
+    local[2, 0] = rodrigues(np.array([.4, .2, -.3]))  # source wrist now rotates
+    world = world_rotations(local, parents)
+    joints = source_to_blender(forward_kinematics(rest, world, parents, np.zeros((3, 3))))
+    posed = carry_rest_frames(frames, joints, world)
+    assert posed[1, 0, :3, :3] == pytest.approx(posed[0, 0, :3, :3], abs=1e-12)
+    assert not np.allclose(joints[1, 2] - joints[1, 0], joints[0, 2] - joints[0, 0])
+    for frame in range(3):
+        expected = blender_rotation(world[frame, 0]) @ palm_axis
+        assert posed[frame, 0, :3, 1] == pytest.approx(expected, abs=1e-12)
+
+
 # ---------------------------------------------------------------------------
 # layout guard
 # ---------------------------------------------------------------------------

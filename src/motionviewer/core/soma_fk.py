@@ -57,16 +57,16 @@ SOMA77_NAMES: tuple[str, ...] = (
     "RightLeg", "RightShin", "RightFoot", "RightToeBase", "RightToeEnd",
 )  # fmt: skip
 
-# Child each bone's Y axis aims at, where the joint has more than one and the choice
-# is not obvious. Any consistent choice retargets correctly, because the same frame is
-# used on the rest and the posed side; these are picked so a bone points along the
-# limb a reader would expect.
+# Landmark each bone's rest Y axis aims at. For absolute transfer this must match
+# the target's anatomical axis: only roll is calibrated, so an arbitrary source
+# aim would become a constant pose error. Middle1 is a laterally offset metacarpal
+# base; Middle2 is the middle-finger knuckle and defines the wrist-to-palm axis.
 SOMA77_PRIMARY_CHILD: dict[str, str] = {
     "Hips": "Spine1",
     "Chest": "Neck1",
     "Head": "HeadEnd",
-    "LeftHand": "LeftHandMiddle1",
-    "RightHand": "RightHandMiddle1",
+    "LeftHand": "LeftHandMiddle2",
+    "RightHand": "RightHandMiddle2",
 }
 
 

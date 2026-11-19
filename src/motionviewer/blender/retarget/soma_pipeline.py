@@ -19,7 +19,7 @@ from typing import Any
 
 import numpy as np
 
-from ...core.soma_fk import build_soma_motion
+from ...core.soma_fk import SOMA77_NAMES, SOMA77_PRIMARY_CHILD, build_soma_motion, check_layout
 from ._animate import animate_mmd_frames
 from ._bootstrap import BootstrapOutput
 from .mmd import MmdPolishOptions, mute_mmd_ik
@@ -34,6 +34,7 @@ REQUIRED_SOMA_KEYS: tuple[str, ...] = (
     "joint_names",
     "joint_parents",
 )
+SOMA_POSE_CONVENTION = "relative_to_soma_joint_orient"
 
 
 def load_soma(path: str | Path) -> dict:
@@ -45,6 +46,38 @@ def load_soma(path: str | Path) -> dict:
         payload = {key: np.asarray(data[key]) for key in REQUIRED_SOMA_KEYS}
         payload["fps"] = float(data["fps"]) if "fps" in data.files else 30.0
         payload["caption"] = str(data["caption"]) if "caption" in data.files else ""
+        if "pose_convention" in data.files:
+            convention = np.asarray(data["pose_convention"])
+            if convention.ndim != 0 or str(convention.item()) != SOMA_POSE_CONVENTION:
+                raise ValueError(f"SOMA pose_convention must be {SOMA_POSE_CONVENTION!r}")
+            payload["pose_convention"] = SOMA_POSE_CONVENTION
+
+    joints = payload["joints77"]
+    joint_count = len(SOMA77_NAMES)
+    if joints.ndim != 3 or joints.shape[1:] != (joint_count, 3) or not len(joints):
+        raise ValueError("SOMA joints77 must have shape (frames > 0, 77, 3)")
+    shapes = {
+        "rotmat77": (len(joints), joint_count, 3, 3),
+        "transl": (len(joints), 3),
+        "bone_lengths": (joint_count,),
+        "joint_names": (joint_count,),
+        "joint_parents": (joint_count,),
+    }
+    for key, shape in shapes.items():
+        if payload[key].shape != shape:
+            raise ValueError(f"SOMA {key} must have shape {shape}, got {payload[key].shape}")
+    for key in ("joints77", "rotmat77", "transl", "bone_lengths", "joint_parents"):
+        values = payload[key]
+        if not np.issubdtype(values.dtype, np.number) or not np.isfinite(values).all():
+            raise ValueError(f"SOMA {key} must contain finite numbers")
+    parents = payload["joint_parents"]
+    if not np.equal(parents, np.floor(parents)).all():
+        raise ValueError("SOMA joint_parents must contain integer indices")
+    check_layout(tuple(str(name) for name in payload["joint_names"]), parents)
+    if (payload["bone_lengths"] < 0).any():
+        raise ValueError("SOMA bone_lengths must be non-negative")
+    if not np.isfinite(payload["fps"]) or payload["fps"] <= 0:
+        raise ValueError("SOMA fps must be finite and positive")
     return payload
 
 
@@ -80,6 +113,9 @@ def create_soma_actor_from_npz(
         raise ValueError("SOMA/MMD mapping failed: " + "; ".join(mapping.errors))
     armature["motionviewer_soma_map"] = json.dumps(mapping.smplx_to_fbx, ensure_ascii=False, sort_keys=True)
     armature["motionviewer_soma_fingers"] = mapping.driven_fingers
+    armature["motionviewer_soma_hand_aim"] = json.dumps(
+        {name: SOMA77_PRIMARY_CHILD[name] for name in ("LeftHand", "RightHand")}, sort_keys=True,
+    )
     print(
         f"soma: {len(mapping.smplx_to_fbx)} driven joints "
         f"({mapping.driven_fingers} finger bones), {len(motion.posed_frames)} frames"

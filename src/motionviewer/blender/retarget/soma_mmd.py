@@ -2,17 +2,19 @@
 
 The body mapping is the existing one: SOMA's joints land on the same canonical roles
 SMPL-X did, so ``_CANONICAL_TO_MMD_ALIASES`` and ``_TRANSFER_MODES`` are reused rather
-than restated. What is new is the hands. SOMA carries 52 finger joints; body-22 carried
+than restated. What is new is the hands. SOMA carries full finger chains; body-22 carried
 none, which is why ``hand_relax`` exists at all — it poses a static curl to stop a flat
 bind reading as a mannequin. Yoimiya's rig has 40 finger bones waiting to be driven.
 
-Two mapping details are worth stating because they are choices, not facts:
+The segment mapping follows the joints' anatomy, not their numeric suffixes:
 
-- **SOMA has one more finger segment than MMD.** SOMA runs
+- **SOMA has a separate metacarpal for each non-thumb finger.** SOMA runs
   ``Index1 -> Index2 -> Index3 -> Index4 -> IndexEnd``; MMD runs
-  ``人指１ -> 人指２ -> 人指３ -> 人指先``. The first three joints are mapped and
-  ``Index4`` is left undriven. Because transfers apply *global* rotations, an undriven
-  leaf loses only its own segment — the distal joint stops curling, the rest is exact.
+  ``人指１ -> 人指２ -> 人指３ -> 人指先``. ``Index1 -> Index2`` is the long palm
+  segment, so ``Index2/3/4`` drive the three MMD phalanges. The same applies to
+  Middle, Ring and Pinky. Global rotations retain the unrepresented metacarpal's
+  contribution to each finger's orientation; its positional deformation cannot be
+  reproduced by a rig without that bone.
 - **The thumb is offset by one.** MMD numbers the thumb from the metacarpal
   (``親指０``), so ``親指０/１/２`` take SOMA's ``Thumb1/2/3``; the other fingers have no
   metacarpal bone and start at ``１``.
@@ -20,8 +22,8 @@ Two mapping details are worth stating because they are choices, not facts:
 Fingers use the ``absolute`` transfer, like the arm chain and for the same reason: an
 MMD hand is bound in a relaxed curl while SOMA's rest hand is flat, so ``relative``
 would add the source's curl *on top of* the bind and over-close the fist. ``absolute``
-aims each MMD finger bone where the SOMA bone points, which is what makes a grip land
-where the motion put it.
+aims each MMD finger bone where the SOMA bone points. Different hand proportions and
+the missing metacarpals still change fingertip positions and object contact.
 """
 
 from __future__ import annotations
@@ -89,7 +91,10 @@ def _finger_tables() -> tuple[dict[str, str], dict[str, tuple[str, ...]], dict[s
         for soma_stem, mmd_stem, numbers in _FINGERS:
             for segment, number in enumerate(numbers, start=1):
                 role = f"{soma_stem.lower()}{segment}.{suffix}"
-                to_canonical[f"{soma_side}Hand{soma_stem}{segment}"] = role
+                # Non-thumb SOMA joint 1 drives a metacarpal. MMD's first
+                # numbered finger bone begins at the knuckle (SOMA joint 2).
+                source_segment = segment if soma_stem == "Thumb" else segment + 1
+                to_canonical[f"{soma_side}Hand{soma_stem}{source_segment}"] = role
                 aliases[role] = (f"{mmd_side}{mmd_stem}{number}",)
                 modes[role] = "absolute"
     return to_canonical, aliases, modes
@@ -149,9 +154,15 @@ def build_soma_mmd_mapping(armature: Any, *, drive_fingers: bool = True) -> Soma
         if canonical in canonical_map and canonical not in _SKIP_DRIVE
     }
 
-    # Body joints that must resolve. Fingers are allowed to be missing; the rest of the
-    # body is not, and a silent gap there would show as a limb that does not move.
+    # Two-segment torsos have no target for Spine2. Chest receives its full source
+    # world rotation, which already includes Spine2; only the intervening curve is
+    # coarser. Match the SMPL-X mapper's existing optional-spine rule. Do not excuse
+    # missing chest/limb channels or overwrite two source channels onto one bone.
     skip = {source for source, canonical in SOMA_TO_CANONICAL.items() if canonical in _SKIP_DRIVE}
+    skip |= {
+        source for source, canonical in SOMA_BODY_TO_CANONICAL.items()
+        if canonical in _OPTIONAL_CANONICAL and canonical not in canonical_map
+    }
     missing = [source for source in SOMA_BODY_TO_CANONICAL if source not in source_map and source not in skip]
     if missing:
         errors.append("incomplete SOMA body mapping: " + ", ".join(missing))

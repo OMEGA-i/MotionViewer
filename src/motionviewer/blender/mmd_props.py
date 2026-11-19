@@ -25,6 +25,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
+from .mmd_box_support import build_supported_box_scene
+
 # Regulation dimensions, in metres. Kept as named constants so a wrong prop is a
 # wrong number here rather than a wrong-looking render nobody can account for.
 TABLE_TENNIS = {
@@ -103,6 +105,7 @@ class SceneBuild:
     static: list[Any] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     wants_static_camera: bool = False
+    report: dict[str, Any] = field(default_factory=dict)
 
     @property
     def objects(self) -> list[Any]:
@@ -684,10 +687,127 @@ def build_basketball_scene(bpy: Any, style: PropStyle, *, hand_bone: str) -> Sce
     )
 
 
+def build_two_hand_carry_box_scene(
+    bpy: Any,
+    style: PropStyle,
+    *,
+    armature: Any,
+    hand_bone: str = "左手首",
+    other_bone: str | None = None,
+    frame_start: int = 1,
+    frames: int = 1,
+    grip_mode: str = "side",
+    fit_start: int | None = None,
+    fit_end: int | None = None,
+    side: float | None = None,
+    depth: float | None = None,
+    height: float | None = None,
+    contact: bool = False,
+    mesh_objects: list[Any] | None = None,
+) -> SceneBuild:
+    """Bake a fixed-size box to both hands; keep the old single-wrist preset intact.
+
+    Fit bounds are inclusive Blender frame numbers. The box has its own world-space
+    animation, so callers must not parent it to a wrist after this function returns.
+    With ``contact=True``, only the derived actor's arm/hand rotations are fitted
+    to the fixed box using evaluated skin. Original motion files remain unchanged.
+    """
+    import numpy as np
+    from mathutils import Matrix, Vector
+
+    from motionviewer.core.prop_fit import fit_two_hand_box
+
+    if frames < 1:
+        raise ValueError("frames must be positive")
+    if contact and grip_mode != "side":
+        raise ValueError("Box hand contact currently requires grip_mode='side'; bottom support is not validated")
+    if other_bone is None:
+        other_bone = "右手首" if hand_bone.startswith("左") else "左手首"
+    bones = armature.pose.bones
+    for name in (hand_bone, other_bone, "頭"):
+        if name not in bones:
+            raise KeyError(name)
+    torso = next((name for name in ("上半身2", "上半身", "センター") if name in bones), None)
+    if torso is None:
+        raise KeyError("No torso bone for carry-box orientation")
+    old_frame = bpy.context.scene.frame_current
+
+    def point(name):
+        return np.asarray(armature.matrix_world @ bones[name].head, dtype=float)
+
+    def palm(name):
+        prefix = "左" if name.startswith("左") else "右"
+        knuckle = prefix + "中指１"
+        return (point(name) + point(knuckle)) / 2 if knuckle in bones else point(name)
+
+    left, right, heads, torsos = [], [], [], []
+    try:
+        for frame in range(frame_start, frame_start + frames):
+            bpy.context.scene.frame_set(frame)
+            bpy.context.view_layer.update()
+            left.append(palm(hand_bone))
+            right.append(palm(other_bone))
+            heads.append(point("頭"))
+            torsos.append(point(torso))
+        fit_range = None
+        if fit_start is not None or fit_end is not None:
+            fit_range = ((fit_start if fit_start is not None else frame_start) - frame_start,
+                         (fit_end if fit_end is not None else frame_start + frames - 1) - frame_start + 1)
+        fit = fit_two_hand_box(np.asarray(left), np.asarray(right), np.asarray(heads), np.asarray(torsos),
+                              grip_mode=grip_mode, fit_range=fit_range, side=side, depth=depth, height=height)
+        obj = build_cardboard_box(bpy, style, side=fit.size[0], depth=fit.size[1], height=fit.size[2])
+        # Joined cardboard panels inherit the top panel's origin. Re-centre their
+        # mesh and normalize the actual outer bounds before applying the fitted pose.
+        coordinates = np.asarray([tuple(vertex.co) for vertex in obj.data.vertices])
+        low, high = coordinates.min(axis=0), coordinates.max(axis=0)
+        normalized = (coordinates - (low + high) / 2) * (np.asarray(fit.size) / (high - low))
+        for vertex, coordinate in zip(obj.data.vertices, normalized, strict=True):
+            vertex.co = Vector(coordinate)
+        obj.location = (0, 0, 0)
+        obj.rotation_mode = "QUATERNION"
+        obj.scale = (1, 1, 1)
+        previous = None
+        for index, frame in enumerate(range(frame_start, frame_start + frames)):
+            quaternion = Matrix(fit.rotations[index]).to_quaternion()
+            if previous is not None and quaternion.dot(previous) < 0:
+                quaternion.negate()
+            obj.location = Vector(fit.centres[index])
+            obj.rotation_quaternion = quaternion
+            obj.keyframe_insert("location", frame=frame)
+            obj.keyframe_insert("rotation_quaternion", frame=frame)
+            previous = quaternion.copy()
+        from motionviewer.blender.retarget._animate import _linearize
+
+        _linearize(obj)
+        report = dict(fit.report)
+        report["fit_frames_inclusive"] = [frame_start + fit.report["fit_range_0based_half_open"][0],
+                                          frame_start + fit.report["fit_range_0based_half_open"][1] - 1]
+        report["frame_start"], report["frames"] = frame_start, frames
+        if contact:
+            from .mmd_box_contact import apply_box_hand_contact
+
+            report["hand_contact"] = apply_box_hand_contact(
+                bpy, armature, obj, frame_start=frame_start, frames=frames,
+                size=fit.size, mesh_objects=mesh_objects,
+            )
+        return SceneBuild(
+            props=[Prop(obj=obj)], report=report,
+            notes=[f"fixed box {fit.size[0]:.3f} x {fit.size[1]:.3f} x {fit.size[2]:.3f} m; {grip_mode} grip",
+                   ("Derived arm/hand rotations fitted to fixed box; original motion and root trajectory unchanged"
+                    if contact else "World-space keys follow both palms; source motion and arm channels unchanged"),
+                   f"contact error p95 {report['contact_error_per_hand_mm']['p95']:.1f} mm; inspect before acceptance"],
+        )
+    finally:
+        bpy.context.scene.frame_set(old_frame)
+        bpy.context.view_layer.update()
+
+
 SCENE_BUILDERS = {
     "table_tennis": build_table_tennis_scene,
     "badminton": build_badminton_scene,
     "carry_box": build_carry_box_scene,
+    "carry_box_two_hand": build_two_hand_carry_box_scene,
+    "carry_box_supported": build_supported_box_scene,
     "basketball": build_basketball_scene,
 }
 
@@ -697,6 +817,8 @@ SCENE_DEFAULTS = {
     "table_tennis": {"hand": "右手首", "static_camera": True},
     "badminton": {"hand": "右手首", "static_camera": True},
     "carry_box": {"hand": "左手首", "static_camera": False},
+    "carry_box_two_hand": {"hand": "左手首", "static_camera": False},
+    "carry_box_supported": {"hand": "左手首", "static_camera": False},
     "basketball": {"hand": "右手首", "static_camera": False},
 }
 
@@ -930,7 +1052,7 @@ def _grip_point_and_axis(obj: Any, grip: str) -> tuple[Any, Any, float, float]:
 
 
 def grip_axis_from_fingers(
-    bpy: Any, armature: Any, hand_bone: str, *, frame: int | None = None
+    bpy: Any, armature: Any, hand_bone: str, *, frame: int | None = None, mode: str = "legacy"
 ) -> tuple[Any, Any, Any]:
     """The line a closed fist actually encircles, measured by closing it.
 
@@ -952,9 +1074,13 @@ def grip_axis_from_fingers(
     your fingers.
 
     Returns the axis point, its unit direction, and the palm normal, all in world space.
-    The pose is restored before returning.
+    The pose is restored before returning. ``bounded`` sets total local-X flexion;
+    ``legacy`` preserves the old additive pose for reproducing existing shots.
     """
     from mathutils import Euler, Vector
+
+    if mode not in {"legacy", "bounded"}:
+        raise ValueError("mode must be 'legacy' or 'bounded'")
 
     # Measure on the frame the weapon will be placed for. Without this the function reads
     # whatever frame the scene happens to be on, and the retarget leaves it at the *last*
@@ -986,9 +1112,15 @@ def grip_axis_from_fingers(
     for bone, _ in saved:
         for segment, degrees in (("１", 75.0), ("２", 90.0), ("３", 60.0)):
             if bone.name.endswith(segment):
-                bone.rotation_quaternion = (
-                    bone.rotation_quaternion @ Euler((math.radians(degrees), 0.0, 0.0), "XYZ").to_quaternion()
-                )
+                if mode == "bounded":
+                    original = bone.rotation_quaternion.to_euler("XYZ")
+                    bone.rotation_quaternion = Euler(
+                        (math.radians(degrees), original.y, original.z), "XYZ"
+                    ).to_quaternion()
+                else:
+                    bone.rotation_quaternion = (
+                        bone.rotation_quaternion @ Euler((math.radians(degrees), 0.0, 0.0), "XYZ").to_quaternion()
+                    )
                 break
     bpy.context.view_layer.update()
 
@@ -1039,8 +1171,14 @@ def fit_weapon_to_hand(
     grip: str = "low",
     *,
     frame: int | None = None,
+    mode: str = "legacy",
 ) -> dict:
     """Put the grip in the palm and point the weapon away from the character.
+
+    ``legacy`` preserves historical placement. ``bounded`` additionally searches a
+    small palm-plane offset against four finger/cylinder proxies. ``surface`` uses
+    an asset-checked calibration with evaluated-skin diagnostics and an opposed
+    thumb; currently its support is limited to the calibrated Feixiao weapon pair.
 
     Two things went wrong before this and both showed up as the same picture. The grip
     end was chosen by a geometric guess that is inverted for a sword, so the tip sat in
@@ -1060,7 +1198,22 @@ def fit_weapon_to_hand(
     four fingers close around. The weapon then points outward along the fist axis, which
     is what ``local_dir`` already gives.
     """
+    if mode == "surface":
+        from motionviewer.blender.mmd_weapon_contact import fit_surface_weapon
+
+        return fit_surface_weapon(bpy, obj, armature, hand_bone, grip=grip, frame=frame)
+
     from mathutils import Matrix, Vector
+
+    if mode not in {"legacy", "bounded"}:
+        raise ValueError("mode must be 'legacy', 'bounded' or 'surface'")
+
+    # Every world-space measurement below must use the requested placement frame.
+    # Retargeting leaves the scene on its last keyed frame; accepting ``frame``
+    # without applying it makes this API depend on the caller's current frame.
+    if frame is not None:
+        bpy.context.scene.frame_set(frame)
+    bpy.context.view_layer.update()
 
     bones = armature.pose.bones
     if hand_bone not in bones:
@@ -1089,7 +1242,9 @@ def fit_weapon_to_hand(
         palm = wrist + forward * (knuckles - wrist).length * 0.6
     # Measured grip axis first: close the fist and see what line it encircles. The
     # knuckle-line construction below is the fallback for a rig with no finger bones.
-    measured_origin, measured_dir, measured_normal = grip_axis_from_fingers(bpy, armature, hand_bone)
+    measured_origin, measured_dir, measured_normal = grip_axis_from_fingers(
+        bpy, armature, hand_bone, mode=mode
+    )
 
     # The knuckle line: the axis a closed fist encircles. Falls back to the hand bone's
     # own X when a rig has no finger bones to measure it from.
@@ -1205,7 +1360,65 @@ def fit_weapon_to_hand(
     obj.parent_bone = hand_bone
     obj.matrix_parent_inverse = Matrix.Identity(4)
     obj.matrix_world = placement
+    placement_search = None
+    if mode == "bounded":
+        import numpy as np
+
+        from motionviewer.core.prop_fit import finger_chain_points, fit_finger_cylinder
+
+        bpy.context.view_layer.update()
+        axis_origin, axis_direction = _shaft_axis(obj, grip)
+        normal = np.asarray(palm_normal, dtype=float)
+        direction = np.asarray(axis_direction, dtype=float)
+        radial = np.cross(direction, normal)
+        radial /= max(np.linalg.norm(radial), 1e-9)
+        chains = {}
+        for finger in ("人指", "中指", "薬指", "小指"):
+            chain = [bones.get(f"{side}{finger}{segment}") for segment in ("１", "２", "３")]
+            if not all(bone is not None and bone.parent is not None for bone in chain):
+                continue
+            parent_world = np.asarray(world @ chain[0].parent.matrix)
+            offsets = np.asarray([bone.parent.bone.matrix_local.inverted() @ bone.bone.matrix_local
+                                  for bone in chain])
+            lengths = np.asarray([bone.bone.length for bone in chain])
+            reference = np.asarray([tuple(bone.rotation_quaternion.to_euler("XYZ")) for bone in chain])
+            predicted = finger_chain_points(parent_world, offsets, lengths, reference)
+            actual = np.asarray([tuple(world @ chain[0].head)] + [tuple(world @ bone.tail) for bone in chain])
+            if float(np.max(np.linalg.norm(predicted - actual, axis=1))) < 0.0001:
+                chains[finger] = (parent_world, offsets, lengths, reference)
+        if len(chains) == 4:
+            best = None
+            for outward in (0.0, 0.01, 0.02):
+                for along in (-0.02, -0.01, 0.0, 0.01, 0.02):
+                    shift = normal * outward + radial * along
+                    origin = np.asarray(axis_origin) + shift
+                    fits = {finger: fit_finger_cylinder(*chain, origin, direction, shaft / 2 + _SKIN_M)
+                            for finger, chain in chains.items()}
+                    score = sum(item["score"] for item in fits.values()) + 0.01 * float(np.dot(shift, shift))
+                    if best is None or score < best[0]:
+                        best = (score, shift, fits)
+            score, shift, fits = best
+            translated = obj.matrix_world.copy()
+            translated.translation += Vector(shift)
+            obj.matrix_world = translated
+            palm += Vector(shift)
+            bpy.context.view_layer.update()
+            placement_search = {
+                "shift_world_mm": (shift * 1000).tolist(),
+                "shift_length_mm": float(np.linalg.norm(shift) * 1000),
+                "score": float(score),
+                "candidate_count": 15,
+                "range": "0..20 mm palmward, +/-20 mm along the orthogonal radial direction",
+                "skin_surface_measured": False,
+                "proxy": "four three-bone finger chains against shaft radius + 2 mm padding; thumb excluded",
+                "finger_diagnostics": {finger: {key: value for key, value in item.items() if key != "points"}
+                                       for finger, item in fits.items()},
+            }
+        else:
+            placement_search = {"skipped": "four complete independently verified finger chains required"}
     return {
+        "fit_mode": mode,
+        "placement_search": placement_search,
         "grip": grip,
         "palm_normal": tuple(palm_normal),
         "shaft_mm": round(shaft * 1000, 1),
@@ -1267,7 +1480,7 @@ def _wrap_error(point: Any, origin: Any, direction: Any, normal: Any, radius: fl
 #: joint, and holding that shape while one number scales it keeps the search
 #: one-dimensional per finger.
 _PHALANX_RATIO = (1.0, 1.25, 0.85)
-#: Flexion limits of a real finger, in degrees: knuckle, middle joint, fingertip joint.
+#: Configured total-flexion bounds, in degrees: knuckle, middle joint, fingertip joint.
 #: The search used to stop at 140, a number with nothing behind it, and three of four
 #: weapons solved past it — 100 to 136 at the knuckle, which drives the middle joint to
 #: 125-170 and folds the finger through itself. That is the deformation, and it is why
@@ -1276,9 +1489,10 @@ _FLEXION_LIMITS = (90.0, 110.0, 90.0)
 #: Radius of the ring a fist encloses at the flexion cap, measured on these rigs: the
 #: fingertips land 7.6-13.1 mm from the grip axis, so about 10 mm.
 _FIST_RING_RADIUS_M = 0.010
-#: Largest base angle that keeps every phalanx inside its limit, given the ratio above.
+#: Legacy incremental cap. Since legacy adds this to a relaxed pose, it is NOT a
+#: total-angle guarantee. The opt-in bounded mode sets total local-X angles instead.
 _MAX_BASE_DEGREES = min(limit / ratio for limit, ratio in zip(_FLEXION_LIMITS, _PHALANX_RATIO))
-#: Flesh between the bone the rig reports and the surface that touches the shaft.
+#: Heuristic padding between bone centres and the shaft proxy, not measured skin.
 _SKIN_M = 0.002
 
 
@@ -1293,8 +1507,17 @@ def close_hand(
     weapon: Any = None,
     grip: str = "low",
     palm_normal: Any = None,
+    mode: str = "legacy",
 ) -> dict:
-    """Close the fingers until each fingertip touches the shaft, one finger at a time.
+    """Fit a finger pose against the shaft, with explicit remaining fit errors.
+
+    ``surface`` applies the matching asset calibration, including thumb opposition,
+    and measures evaluated skin samples. The default ``legacy`` reproduces existing
+    additive curls. ``bounded`` searches
+    independent total joint flexions, keeps local Y/Z spread, checks its kinematics
+    against Blender, and penalizes bone samples entering a padded cylinder. Neither
+    mode is a skin/weapon collision solver, and reaching a proxy does not establish
+    natural-looking contact. The thumb remains unchanged.
 
     With ``weapon`` given this solves rather than guesses: for each finger it sweeps the
     curl and keeps the angle whose fingertip lands one shaft radius plus 2 mm from the
@@ -1316,7 +1539,18 @@ def close_hand(
     The thumb is left alone throughout: it wraps the opposite way, and the same curl
     drives it through the grip.
     """
+    if mode == "surface":
+        from motionviewer.blender.mmd_weapon_contact import close_surface_hand
+
+        return close_surface_hand(bpy, armature, hand_bone, weapon=weapon, grip=grip,
+                                  frame_start=frame_start, frames=frames)
+
     from mathutils import Euler
+
+    if mode not in {"legacy", "bounded"}:
+        raise ValueError("mode must be 'legacy', 'bounded' or 'surface'")
+    bpy.context.scene.frame_set(frame_start)
+    bpy.context.view_layer.update()
 
     side = "右" if hand_bone.startswith("右") else "左"
     fingers = ("人指", "中指", "薬指", "小指")
@@ -1327,20 +1561,32 @@ def close_hand(
 
     # Whatever the retarget left on these bones is the pose the curl composes onto.
     rest = {}
+    rest_eulers = {}
     for finger in fingers:
         for segment in segments:
             bone = bone_of(finger, segment)
             if bone is not None:
                 bone.rotation_mode = "QUATERNION"
                 rest[(finger, segment)] = bone.rotation_quaternion.copy()
+                rest_eulers[(finger, segment)] = bone.rotation_quaternion.to_euler("XYZ")
+
+    joint_degrees: dict[str, list[float]] = {}
+    diagnostics: dict[str, dict] = {}
 
     def pose(finger: str, base: float) -> None:
         for segment, ratio in zip(segments, _PHALANX_RATIO):
             bone = bone_of(finger, segment)
             if bone is None:
                 continue
-            curl = Euler((math.radians(base * ratio), 0.0, 0.0), "XYZ").to_quaternion()
-            bone.rotation_quaternion = rest[(finger, segment)] @ curl
+            if mode == "bounded":
+                original = rest_eulers[(finger, segment)]
+                angle = min(base * ratio, _FLEXION_LIMITS[segments.index(segment)])
+                bone.rotation_quaternion = Euler(
+                    (math.radians(angle), original.y, original.z), "XYZ"
+                ).to_quaternion()
+            else:
+                curl = Euler((math.radians(base * ratio), 0.0, 0.0), "XYZ").to_quaternion()
+                bone.rotation_quaternion = rest[(finger, segment)] @ curl
 
     solved: dict[str, float] = {}
     scale = min(1.35, max(0.75, 0.032 / max(shaft_m, 1e-4)))
@@ -1360,6 +1606,34 @@ def close_hand(
             if tip is None:
                 solved[finger] = fallback[finger]
                 continue
+            if mode == "bounded":
+                import numpy as np
+
+                from motionviewer.core.prop_fit import finger_chain_points, fit_finger_cylinder
+
+                chain = [bone_of(finger, segment) for segment in segments]
+                if all(bone is not None and bone.parent is not None for bone in chain):
+                    parent_world = np.asarray(world @ chain[0].parent.matrix)
+                    offsets = np.asarray([bone.parent.bone.matrix_local.inverted() @ bone.bone.matrix_local
+                                          for bone in chain])
+                    lengths = np.asarray([bone.bone.length for bone in chain])
+                    reference = np.asarray([tuple(rest_eulers[(finger, segment)]) for segment in segments])
+                    predicted = finger_chain_points(parent_world, offsets, lengths, reference)
+                    actual = np.asarray([tuple(world @ chain[0].head)] + [tuple(world @ bone.tail) for bone in chain])
+                    fk_error = float(np.max(np.linalg.norm(predicted - actual, axis=1)))
+                    if fk_error < 0.0001:
+                        fitted = fit_finger_cylinder(parent_world, offsets, lengths, reference,
+                                                     np.asarray(origin), np.asarray(direction), radius)
+                        joint_degrees[finger] = fitted.pop("degrees")
+                        fitted.pop("points")
+                        fitted["fk_check_mm"] = fk_error * 1000
+                        fitted["collision_proxy"] = "bone-centre samples against shaft radius + 2 mm padding"
+                        fitted["skin_surface_measured"] = False
+                        diagnostics[finger] = fitted
+                        solved[finger] = joint_degrees[finger][0]
+                        continue
+                    diagnostics[finger] = {"fallback": "bounded ratio; independent FK check failed",
+                                           "fk_check_mm": fk_error * 1000}
             best, best_error = fallback[finger], float("inf")
             for base in range(20, int(_MAX_BASE_DEGREES) + 1, 2):
                 pose(finger, float(base))
@@ -1385,8 +1659,16 @@ def close_hand(
                 bone = bone_of(finger, segment)
                 if bone is None:
                     continue
-                curl = Euler((math.radians(solved[finger] * ratio), 0.0, 0.0), "XYZ").to_quaternion()
-                bone.rotation_quaternion = rest[(finger, segment)] @ curl
+                if mode == "bounded":
+                    original = rest_eulers[(finger, segment)]
+                    angle = (joint_degrees[finger][segments.index(segment)] if finger in joint_degrees
+                             else min(solved[finger] * ratio, _FLEXION_LIMITS[segments.index(segment)]))
+                    bone.rotation_quaternion = Euler(
+                        (math.radians(angle), original.y, original.z), "XYZ"
+                    ).to_quaternion()
+                else:
+                    curl = Euler((math.radians(solved[finger] * ratio), 0.0, 0.0), "XYZ").to_quaternion()
+                    bone.rotation_quaternion = rest[(finger, segment)] @ curl
                 bone.keyframe_insert("rotation_quaternion", frame=frame)
                 keys += 1
     bpy.context.scene.frame_set(frame_start)
@@ -1395,6 +1677,10 @@ def close_hand(
         "keys": keys,
         "solved": {k: round(v, 1) for k, v in solved.items()},
         "mode": "solved" if weapon is not None else "scaled",
+        "fit_mode": mode,
+        "total_joint_degrees": joint_degrees if mode == "bounded" else {},
+        "diagnostics": diagnostics,
+        "thumb": "unchanged; opposition not solved",
     }
 
 

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "profile_id": "nilou-garment-compliance-v1",
+  "asset_sha256": "764f60bd149911183ce668f6aa1c48425be62c03516a384b770dc66d13d7e474",
+  "import_scale": 0.08,
+  "bullet": {
+    "substeps": 12,
+    "iterations": 24,
+    "settle_frames": 30,
+    "damping_mode": "pmx",
+    "cloth_angular_slack_degrees": 0,
+    "cloth_linear_slack_m": 0
+  },
+  "joint_rules": [
+    {
+      "bone_prefix": "左D_",
+      "locked_angular_half_range_degrees": 3
+    },
+    {
+      "bone_prefix": "右D_",
+      "locked_angular_half_range_degrees": 3
+    },
+    {
+      "bone_prefix": "左QD_",
+      "locked_angular_half_range_degrees": 3
+    },
+    {
+      "bone_prefix": "右QD_",
+      "locked_angular_half_range_degrees": 3
+    }
+  ],
+  "visual_verified": [
+    {
+      "motion_sha256": "a0999841abf0e59ba7baa47cf72c07529250eb249f84cb3cdcf2b20c6ea6ccf3",
+      "motion_id": "100948",
+      "frame_start": 1,
+      "frames": 152,
+      "fps": 50.0,
+      "views": [
+        "three_quarter"
+      ],
+      "display_context": "native SOMA77, faithful, source root, source fingers, no pose polish / foot IK / arm avoidance / smoothing / expression; full 152 consecutive rendered frames inspected by two agents",
+      "evidence": "outputs/characters-2026-10-23/nilou/dance-ribbon-bend3/character.mp4",
+      "notes": "Continuous main-view skirt outline; finger/garment intersections remain (16 frames). No guarantee for unseen views/motions."
+    }
+  ],
+  "notes": "Nilou internal ribbon angular locks relaxed only; waist pins/linear locks preserved. Walk 004162 improves late settling but remains unaccepted as fully natural: stiff early extension and abrupt drop at frames 92-94, plus hand/garment intersections. Only dance main view registered as visually acceptable; no global character certification."
+}

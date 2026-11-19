@@ -134,10 +134,13 @@ class MmdPolishOptions:
 
     All of these change what the character does, so they are grouped and
     recorded on the armature rather than folded into the transfer.  ``enabled``
-    off reproduces the source exactly.
+    off retains mapped source rotations; target proportions still differ.
     """
 
-    enabled: bool = True
+    enabled: bool = False
+    # Preserve source metres by default. Legacy scaling exists only to replay
+    # earlier reviews, whose root paths were scaled to the imported character.
+    root_motion: str = "source"
     # Frames of moving average on the arm chain's axial rotation only.
     twist_window: int = 5
     # 0 leaves the model's flat bind hands; 1 is a relaxed curl.
@@ -154,8 +157,12 @@ class MmdPolishOptions:
     def from_mapping(cls, values: dict | None) -> MmdPolishOptions:
         if not values:
             return cls()
+        root_motion = values.get("root_motion", "source")
+        if root_motion not in {"source", "legacy-scaled"}:
+            raise ValueError("root_motion must be source or legacy-scaled")
         return cls(
-            enabled=bool(values.get("enabled", True)),
+            enabled=bool(values.get("enabled", False)),
+            root_motion=root_motion,
             twist_window=int(values.get("twist_window", 5)),
             hand_relax=float(values.get("hand_relax", 1.0)),
             collar_damping=float(values.get("collar_damping", 0.45)),

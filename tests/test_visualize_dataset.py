@@ -10,9 +10,11 @@ mis-places the entire clip.
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -22,6 +24,7 @@ for extra in (ROOT / "src", ROOT / "scripts"):
     if str(extra) not in sys.path:
         sys.path.insert(0, str(extra))
 
+import visualize_dataset as visualizer  # noqa: E402
 from visualize_dataset import (  # noqa: E402
     REQUIRED,
     Clip,
@@ -29,7 +32,10 @@ from visualize_dataset import (  # noqa: E402
     _clip_id,
     caption_slug,
     detect_trim,
+    materialize,
+    parse_args,
     preprocess,
+    render_clip,
     smooth_pose,
     validate,
     video_name,
@@ -412,3 +418,256 @@ def test_captions_tsv_has_a_header_and_one_row_per_video(tmp_path):
     # sorted by clip id, and tabs and newlines inside a caption cannot break a row
     assert lines[1].startswith("a.mp4\t")
     assert all(len(line.split("\t")) == 6 for line in lines[1:])
+
+
+@pytest.mark.parametrize(
+    ("flags", "mode"),
+    [([], "bullet"), (["--bullet"], "bullet"), (["--spring"], "spring"),
+     (["--physics", "none"], "none"), (["--no-spring"], "none")],
+)
+def test_physics_mode_reaches_the_renderer(tmp_path, monkeypatch, flags, mode):
+    args = parse_args(flags)
+    calls = []
+    frames = tmp_path / "frames"
+
+    def run(command, **kwargs):
+        calls.append(command)
+        (frames / "character" / args.view).mkdir(parents=True)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(visualizer.subprocess, "run", run)
+    clip = Clip("active", "1", tmp_path / "motion.npz", 20, 30, "walk")
+    assert render_clip(clip, "yoimiya", frames, args, []) == ""
+    command = calls[0]
+    assert ("--bullet" in command) == (mode == "bullet")
+    assert ("--spring" in command) == (mode == "spring")
+    assert command[command.index("--foot-contact") + 1] == "off"
+    assert command[command.index("--upper-smooth") + 1] == "0"
+    assert command[command.index("--arm-clearance-degrees") + 1] == "0.0"
+    assert "--faithful" in command
+    assert "--polish" not in command
+    assert command[command.index("--root-motion") + 1] == "source"
+    if mode == "bullet":
+        assert command[command.index("--bullet-damping") + 1] == "legacy-inverted"
+
+
+@pytest.mark.parametrize("flags", [
+    ["--bullet", "--spring"], ["--physics", "bullet", "--no-spring"],
+    ["--bullet-substeps", "0"], ["--bullet-settle", "-1"], ["--smooth", "4"],
+    ["--upper-smooth", "4"], ["--upper-smooth", "3", "--smooth", "3"],
+    ["--floor-z", "nan"],
+    ["--bullet-cloth-linear-slack", "nan"], ["--bullet-cloth-linear-slack", "inf"],
+    ["--bullet-cloth-linear-slack", "-0.0001"], ["--bullet-cloth-linear-slack", "0.01001"],
+    ["--arm-clearance-degrees", "nan"], ["--arm-clearance-degrees", "inf"],
+    ["--arm-clearance-degrees", "-0.1"], ["--arm-clearance-degrees", "4.01"],
+])
+def test_invalid_physics_or_smoothing_settings_fail_before_rendering(flags):
+    with pytest.raises(SystemExit):
+        parse_args(flags)
+
+
+def test_preprocessed_cache_tracks_source_changes_at_the_same_path(tmp_path, monkeypatch):
+    monkeypatch.setattr(visualizer, "source_fingerprint", lambda: "test-pipeline")
+    path = _write(tmp_path / "clip.npz", _walk())
+    clip = Clip("active", "1", path, 60, 30, "walk", trim=1)
+    cache = tmp_path / "cache"
+    assert materialize(clip, cache, 3) == ""
+    first_path = clip.motion_path
+    first_bytes = first_path.read_bytes()
+    _write(path, _walk() + 1.0)
+    assert materialize(clip, cache, 3) == ""
+    assert clip.motion_path != first_path
+    assert first_path.read_bytes() == first_bytes
+    with np.load(first_path) as old, np.load(clip.motion_path) as new:
+        assert np.allclose(new["transl"] - old["transl"], 1.0)
+
+
+def test_batch_resume_checks_inputs_and_settings_and_keeps_previous_results(tmp_path, monkeypatch):
+    """Run orchestration without Blender, including changes and a failed rerender."""
+    source = tmp_path / "motion.npz"
+    source.write_bytes(b"first motion")
+    asset = tmp_path / "character/model.pmx"
+    asset.parent.mkdir()
+    asset.write_bytes(b"model")
+    blender = tmp_path / "blender"
+    blender.write_bytes(b"fake executable")
+    output = tmp_path / "output"
+    clip = Clip("active", "1", source, 30, 30, "walk", score={"activity": 1, "penalty": 0})
+    monkeypatch.setattr(visualizer, "CHARACTERS", {"yoimiya": str(asset)})
+    monkeypatch.setattr(visualizer, "BLENDER", blender)
+    monkeypatch.setattr(visualizer, "source_fingerprint", lambda: "test-pipeline")
+    monkeypatch.setattr(visualizer, "discover", lambda *args: {"active": [clip]})
+    renders = []
+    fail = False
+
+    def fake_render(target, character, frames_dir, args, share):
+        renders.append(args.physics)
+        if fail:
+            return "test render failure"
+        (frames_dir / "character" / args.view).mkdir(parents=True)
+        (frames_dir / "info.json").write_text(json.dumps({
+            "physics_mode": args.physics, "physics": {"built": args.physics == "bullet"},
+        }))
+        return ""
+
+    def fake_encode(panels, destination, fps, width):
+        destination.write_bytes(b"encoded video")
+        return ""
+
+    monkeypatch.setattr(visualizer, "render_clip", fake_render)
+    monkeypatch.setattr(visualizer, "encode", fake_encode)
+
+    def run(*flags):
+        monkeypatch.setattr(sys, "argv", ["visualize_dataset.py", "--data", str(tmp_path),
+                                         "--output", str(output), "--clips", "1", *flags])
+        visualizer.main()
+        return json.loads((output / "manifest.json").read_text())
+
+    first = run()
+    first_video = output / first["videos"][0]["video"]
+    assert first["videos"][0]["render"]["settings"]["physics"] == "bullet"
+    assert first["videos"][0]["renderer_reports"][0]["info"]["physics"]["built"] is True
+    assert run() == first
+    assert renders == ["bullet"]
+
+    second = run("--physics", "spring")
+    assert len(second["videos"]) == 1
+    assert second["history"] == first["videos"]
+    assert first_video.read_bytes() == b"encoded video"
+    assert second["videos"][0]["video"] != first["videos"][0]["video"]
+
+    source.write_bytes(b"changed motion at the same path")
+    third = run("--physics", "spring")
+    assert renders == ["bullet", "spring", "spring"]
+    assert len(third["history"]) == 2
+    assert third["videos"][0]["render_signature"] != second["videos"][0]["render_signature"]
+
+    # A failed new render must leave both old metadata and the playable file intact.
+    fail = True
+    clip.caption = "new caption must not be applied to old video"
+    source.write_bytes(b"another revision")
+    with pytest.raises(SystemExit, match="1"):
+        run()
+    assert json.loads((output / "manifest.json").read_text()) == third
+    assert (output / third["videos"][0]["video"]).read_bytes() == b"encoded video"
+
+    # Different-rate panels must not silently play at the primary clip's speed.
+    other = Clip("gt", "1", source, 60, 60, "walk", score=clip.score)
+    monkeypatch.setattr(visualizer, "discover", lambda *args: {"active": [clip], "gt": [other]})
+    render_count = len(renders)
+    with pytest.raises(SystemExit, match="1"):
+        run("--compare", "gt")
+    assert len(renders) == render_count
+    assert json.loads((output / "manifest.json").read_text()) == third
+
+
+def test_legacy_videos_without_provenance_are_not_treated_as_bullet(tmp_path):
+    video = tmp_path / "old.mp4"
+    video.write_bytes(b"legacy spring video")
+    assert not visualizer.reusable_video({"video": video.name}, tmp_path, "new-bullet-signature")
+
+
+def test_character_texture_changes_invalidate_the_asset_fingerprint(tmp_path):
+    asset = tmp_path / "model.pmx"
+    texture = tmp_path / "face.png"
+    asset.write_bytes(b"unchanged model")
+    texture.write_bytes(b"first texture")
+    before = visualizer.asset_fingerprint(asset)
+    texture.write_bytes(b"fixed texture")
+    assert visualizer.asset_fingerprint(asset) != before
+
+
+def test_contact_floor_and_upper_smoothing_reach_the_renderer(tmp_path, monkeypatch):
+    args = parse_args(["--foot-contact", "on", "--floor-z", "0.04", "--upper-smooth", "3",
+                       "--arm-clearance-degrees", "4"])
+    calls = []
+    frames = tmp_path / "frames"
+
+    def run(command, **kwargs):
+        calls.append(command)
+        (frames / "character" / args.view).mkdir(parents=True)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(visualizer.subprocess, "run", run)
+    clip = Clip("active", "1", tmp_path / "motion.npz", 20, 30, "walk")
+    assert render_clip(clip, "yoimiya", frames, args, []) == ""
+    command = calls[0]
+    for flag, value in (("--foot-contact", "on"), ("--floor-z", "0.04"), ("--upper-smooth", "3"),
+                        ("--arm-clearance-degrees", "4.0")):
+        assert command[command.index(flag) + 1] == value
+
+
+def test_explicit_legacy_pose_settings_reach_the_renderer(tmp_path, monkeypatch):
+    args = parse_args(["--polish", "--root-motion", "legacy-scaled"])
+    calls = []
+    frames = tmp_path / "frames"
+
+    def run(command, **kwargs):
+        calls.append(command)
+        (frames / "character" / args.view).mkdir(parents=True)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(visualizer.subprocess, "run", run)
+    clip = Clip("active", "1", tmp_path / "motion.npz", 20, 30, "walk")
+    assert render_clip(clip, "yoimiya", frames, args, []) == ""
+    command = calls[0]
+    assert "--polish" in command
+    assert "--faithful" not in command
+    assert command[command.index("--root-motion") + 1] == "legacy-scaled"
+
+
+def test_batch_linear_slack_round_trips_through_the_actual_renderer_parser(tmp_path, monkeypatch):
+    from render_mmd_compare import parse_args as parse_render_args
+
+    args = parse_args(["--bullet", "--bullet-cloth-linear-slack", ".002"])
+    parsed = []
+    frames = tmp_path / "frames"
+
+    def run(command, **kwargs):
+        parsed.append(parse_render_args(command[command.index("--") + 1:]))
+        (frames / "character" / args.view).mkdir(parents=True)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(visualizer.subprocess, "run", run)
+    clip = Clip("active", "1", tmp_path / "motion.npz", 20, 30, "walk")
+    assert render_clip(clip, "yoimiya", frames, args, []) == ""
+    assert len(parsed) == 1
+    assert parsed[0].bullet is True
+    assert parsed[0].bullet_cloth_linear_slack == .002
+
+
+@pytest.mark.parametrize("flags", [
+    ["--foot-contact", "on"], ["--floor-z", "0.04"], ["--upper-smooth", "3"],
+    ["--bullet-cloth-slack", "10"], ["--bullet-hand-colliders"], ["--bullet-damping", "pmx"],
+    ["--arm-clearance-degrees", "4"],
+    ["--polish"], ["--root-motion", "legacy-scaled"],
+    ["--bullet-cloth-linear-slack", ".002"],
+])
+def test_contact_and_smoothing_changes_invalidate_video_resume(tmp_path, flags):
+    source = _write(tmp_path / "motion.npz", _walk())
+    clip = Clip("active", "1", source, 60, 30, "walk")
+    old = visualizer.render_provenance(clip, None, "yoimiya", parse_args([]), {})
+    new = visualizer.render_provenance(clip, None, "yoimiya", parse_args(flags), {})
+    assert visualizer.signature(old) != visualizer.signature(new)
+
+
+def test_profile_contents_invalidate_resume_even_at_the_same_path(tmp_path, monkeypatch):
+    import hashlib
+
+    asset = tmp_path / "character.pmx"
+    asset.write_bytes(b"local test asset")
+    monkeypatch.setattr(visualizer, "CHARACTERS", {"test": str(asset)})
+    source = _write(tmp_path / "motion.npz", _walk())
+    clip = Clip("active", "1", source, 60, 30, "walk")
+    profile = tmp_path / "physics.json"
+    payload = dict(schema_version=1, profile_id="test", asset_sha256=hashlib.sha256(asset.read_bytes()).hexdigest(),
+                   import_scale=0.08, bullet={"substeps": 12}, visual_verified=[])
+    profile.write_text(json.dumps(payload))
+    args = parse_args(["--physics-profile", str(profile)])
+    before = visualizer.render_provenance(clip, None, "test", args, {})
+    payload["bullet"]["substeps"] = 24
+    profile.write_text(json.dumps(payload))
+    after = visualizer.render_provenance(clip, None, "test", args, {})
+    assert visualizer.signature(before) != visualizer.signature(after)
+    with pytest.raises(SystemExit):
+        parse_args(["--physics-profile", str(profile), "--physics", "none"])

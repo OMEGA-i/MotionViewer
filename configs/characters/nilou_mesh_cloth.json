@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "profile_id": "nilou-mesh-cloth-v1",
+  "asset_sha256": "764f60bd149911183ce668f6aa1c48425be62c03516a384b770dc66d13d7e474",
+  "import_scale": 0.08,
+  "bullet": {
+    "substeps": 12,
+    "iterations": 24,
+    "settle_frames": 30,
+    "damping_mode": "pmx",
+    "cloth_angular_slack_degrees": 0,
+    "cloth_linear_slack_m": 0,
+    "neutral_settle": true
+  },
+  "joint_rules": [
+    {
+      "bone_prefix": "左D_",
+      "locked_angular_half_range_degrees": 3
+    },
+    {
+      "bone_prefix": "右D_",
+      "locked_angular_half_range_degrees": 3
+    },
+    {
+      "bone_prefix": "左QD_",
+      "locked_angular_half_range_degrees": 3
+    },
+    {
+      "bone_prefix": "右QD_",
+      "locked_angular_half_range_degrees": 3
+    }
+  ],
+  "visual_verified": [],
+  "notes": "Nilou skirt (material 裙, bones Q_*) as a subdivided mesh-cloth proxy colliding with skin and the 体2 hand material, so the hand cannot slice between coarse 27 mm skirt faces. Other garments keep authored Bullet. Experimental.",
+  "mesh_cloth": {
+    "bone_prefixes": [
+      "Q_"
+    ],
+    "materials": [
+      "裙"
+    ],
+    "collider_material_tokens": [
+      "肌",
+      "体2",
+      "裤"
+    ],
+    "subdivide": 1
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "profile_id": "liuying-native-pmx-reviewed-20261023",
+  "asset_sha256": "7ba2a884babc3cf856edb8863e391e3c6830725fbf51e3d2aecfda0ec119fbf7",
+  "import_scale": 0.08,
+  "bullet": {
+    "substeps": 12,
+    "iterations": 24,
+    "settle_frames": 30,
+    "damping_mode": "pmx",
+    "collision_margin": 1e-06,
+    "non_collision_distance_scale": 1.5,
+    "cloth_angular_slack_degrees": 0.0,
+    "cloth_linear_slack_m": 0.0,
+    "cloth_bone_tokens": [
+      "裙",
+      "裾",
+      "スカート",
+      "skirt"
+    ],
+    "fit_hand_colliders": false,
+    "gravity": -7.848
+  },
+  "visual_verified": [
+    {
+      "motion_id": "128701",
+      "motion_sha256": "ddc7562ee19e3de43198241b09a8bca3b60f5bd14bff6a491eceb317171131b4",
+      "frame_start": 1,
+      "frames": 180,
+      "fps": 50.0,
+      "views": [
+        "side"
+      ],
+      "display_context": "Native SOMA77, faithful body and 30 source fingers, root translation in source metres, no weapon. Every side frame inspected at 480px; three-quarter keyframes also inspected. No pose/foot correction.",
+      "evidence": "/Users/a26044/projects/MotionViewer/outputs/characters-2026-10-23/liuying/128701_native_pmx",
+      "notes": "Full side sequences reviewed for both clips; skirt silhouette and hair remain continuous through turns and landing. No evidence from these clips justified relaxing authored constraints. Visual macro-continuity only; this is not a continuous mesh collision certificate."
+    },
+    {
+      "motion_id": "004162",
+      "motion_sha256": "15c2acd608c9b972ba21502917dfdb0b6246e2194022de5a8dc4987ddc4aee38",
+      "frame_start": 1,
+      "frames": 152,
+      "fps": 50.0,
+      "views": [
+        "side"
+      ],
+      "display_context": "Native SOMA77, faithful body and 30 source fingers, root translation in source metres, no weapon. Every side frame inspected at 480px; three-quarter keyframes also inspected. No pose/foot correction.",
+      "evidence": "/Users/a26044/projects/MotionViewer/outputs/characters-2026-10-23/liuying/004162_native_pmx",
+      "notes": "Full side sequences reviewed for both clips; skirt silhouette and hair remain continuous through turns and landing. No evidence from these clips justified relaxing authored constraints. Visual macro-continuity only; this is not a continuous mesh collision certificate."
+    }
+  ],
+  "notes": "Preserves this PMX asset’s authored joint limits and damping. Reviewed only on the two listed source clips; exact target foot planting is not preserved across different character proportions. Full side sequences reviewed for both clips; skirt silhouette and hair remain continuous through turns and landing. No evidence from these clips justified relaxing authored constraints."
+}

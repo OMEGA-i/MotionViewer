@@ -1,10 +1,23 @@
 # Adding a downloaded character
 
-Eighteen MMD character packs were adapted for this pipeline. All of them drive from the
-same SMPL-X motion without per-character configuration, because the retarget is written
-against the standard Japanese MMD bone names rather than against a rig. What did need
-work was getting the files out of the archives intact, and deciding which characters
-are usable at all.
+Historical import probes covered eighteen character packs. Importing and finding
+standard MMD bone names does **not** establish natural motion, valid contacts, or
+usable clothing on every character. The current native SOMA review covers Yoimiya,
+Furina, Nilou, Yanqing, Liuying's Spring Letter outfit, Qingyi, and coatless Feixiao,
+with two complete representative clips per exact asset version.
+
+Body/finger retargeting is shared. Clothing selections, joint limits, collisions,
+and presentation calibration require asset-specific verification. Reusable settings
+live in `configs/characters/` and are guarded by the PMX SHA-256 and import scale;
+see [character physics profiles](character-physics-profiles.md). Replacing a costume
+or PMX requires revalidation rather than silently reusing its old profile.
+
+Prefer native `--soma` for the generated dataset so its thirty mapped finger bones
+are retained. Some rigs have one fewer torso segment: the mapper preserves the
+intermediate rotation in the downstream chest orientation rather than failing to
+import, but it cannot recreate the missing spatial bend distribution. These rigs
+map 49 source joints; Yoimiya maps 50. Neither count proves equivalent contacts on
+different body proportions.
 
 ## Unpacking
 

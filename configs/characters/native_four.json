@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "description": "Local licensed character paths and native representative clips; validated physics settings live in the shared physics profile schema.",
+  "source_policy": {
+    "representation": "native_soma77",
+    "root_motion": "source",
+    "fingers": "source30",
+    "pose_polish": false,
+    "body_avoidance": false
+  },
+  "characters": {
+    "yanqing": {
+      "name": "彦卿",
+      "asset": "assets/fbx/pmx/星穹铁道—彦卿/星穹铁道—彦卿/彦卿1.0.pmx",
+      "weapon": "assets/fbx/pmx/星穹铁道—彦卿/星穹铁道—彦卿/武器.pmx",
+      "representative_motion": "128701",
+      "walk_motion": "004162",
+      "physics_profile": "configs/characters/yanqing_native_pmx.json"
+    },
+    "liuying": {
+      "name": "流萤·春日手信",
+      "asset": "assets/fbx/pmx/星穹铁道—流萤·春日手信/星穹铁道—流萤·春日手信/星穹铁道—流萤·春日手信.pmx",
+      "weapon": "assets/fbx/pmx/星穹铁道—流萤·春日手信/星穹铁道—流萤·春日手信/剑.pmx",
+      "representative_motion": "128701",
+      "walk_motion": "004162",
+      "physics_profile": "configs/characters/liuying_native_pmx.json"
+    },
+    "qingyi": {
+      "name": "青衣",
+      "asset": "assets/fbx/pmx/青衣/青衣.pmx",
+      "weapon": "assets/fbx/pmx/青衣/武器.pmx",
+      "representative_motion": "128701",
+      "walk_motion": "004162",
+      "physics_profile": "configs/characters/qingyi_native_pmx.json"
+    },
+    "feixiao": {
+      "name": "飞霄",
+      "asset": "assets/fbx/pmx/星穹铁道—飞霄无外套/星穹铁道—飞霄（无外套）.pmx",
+      "weapon": "assets/fbx/pmx/星穹铁道—飞霄无外套/星穹铁道—飞霄武器.pmx",
+      "representative_motion": "128701",
+      "walk_motion": "004162",
+      "physics_profile": "configs/characters/feixiao_native_pmx.json"
+    }
+  }
+}

@@ -174,7 +174,8 @@ def animate_mmd_frames(
         # every polish step would quietly match nothing.
         getattr(motion, "polish_aliases", None),
     )
-    roots = _mmd_root_locations(motion, boot, plan.root_translation_scale, vertical_offset_z)
+    root_scale = 1.0 if options.root_motion == "source" else plan.root_translation_scale
+    roots = _mmd_root_locations(motion, boot, root_scale, vertical_offset_z)
     result = solve_mmd_retarget(plan, frames, roots)
     _write_mmd_channels(bpy, boot, plan, result)
 
@@ -185,7 +186,9 @@ def animate_mmd_frames(
     boot.fbx_armature["motionviewer_mmd_transfer"] = json.dumps(
         {
             "channels": audit_plan(plan),
-            "root_translation_scale": plan.root_translation_scale,
+            "root_translation_scale": root_scale,
+            "root_motion_mode": options.root_motion,
+            "legacy_root_translation_scale": plan.root_translation_scale,
             "polish": {
                 "twist_smoothing_window": options.twist_window if options.enabled else 0,
                 "hand_relax": hands.get("amount", 0.0),
@@ -204,7 +207,7 @@ def animate_mmd_frames(
 def _mmd_root_locations(
     motion: Any, boot: BootstrapOutput, scale: float, vertical_offset_z: float
 ) -> np.ndarray:
-    """Height-scaled root path, re-based so frame 0 stands on the floor.
+    """Source root deltas, optionally legacy-scaled, re-based to a fixed origin.
 
     The MMD armature origin is the ground while SMPL-X ``transl`` is the pelvis,
     so only the *delta* transfers.  Vertical delta is kept, otherwise crouches

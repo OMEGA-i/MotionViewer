@@ -27,7 +27,7 @@
 是否作为成品保留，避免覆盖 `final/` 中用于对照的旧视频。
 
 批量入口生成 MP4、`index.html` 和运行记录。单条渲染的帧和诊断放到对应的 `outputs/<本次任务>/`。
-更多入口见 [脚本导航](../scripts/README.md)。
+更多入口见 [脚本导航](../scripts/README.md) 和 [数据集渲染说明](../docs/dataset-visualisation.md)。
 
 ## 本地文件与授权
 

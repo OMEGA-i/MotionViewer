@@ -22,7 +22,19 @@ skills-lock.json
 # Internal notes and local experiment records. Not published.
 /HANDOFF.md
 /项目现状.md
-/docs/
+/docs/*
+!/docs/architecture.md
+!/docs/archives.md
+!/docs/assets.md
+!/docs/blender-setup.md
+!/docs/characters.md
+!/docs/dataset-visualisation.md
+!/docs/formats.md
+!/docs/package_protocol.md
+!/docs/render-jobs.md
+!/docs/retarget.md
+!/docs/soma-direct.md
+!/docs/visual-style.md
 /data/measurements/
 /data/picks_backup/
 

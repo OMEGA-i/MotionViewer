@@ -197,7 +197,8 @@ def smooth_pose(payload: dict, window: int, joints: tuple[str, ...] = _SMOOTH_JO
     ``picks38/gt`` it cuts shake by 63% while moving the pose by under 0.005° at the
     median, 1.21° at p99 and 4.74° at worst.
 
-    That 63% is a source-data figure. Whether it is *visible* is not established.
+    That 63% is a source-data figure. Whether it is *visible* is not established —
+    see ``docs/dataset-visualisation.md``.
 
     ``joints22`` is deliberately left alone. The MMD solve reads bone *orientation*
     from the SMPL-X rotations and never reads a frame origin — the root path comes

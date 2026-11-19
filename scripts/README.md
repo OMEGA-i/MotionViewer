@@ -15,6 +15,8 @@
 | 新角色检查 | [`onboard_character.py`](onboard_character.py) | `uv run python`；自动启动 Blender |
 | 双视角握持检查 | [`_render_grip.py`](_render_grip.py) | Blender `--background --python` |
 
+参数与示例见 [数据集渲染](../docs/dataset-visualisation.md)、
+[角色导入](../docs/characters.md)、[重定向](../docs/retarget.md)。
 后台渲染直接调用 Blender，不要求连接 Blender-MCP。不要同时启动超过三个 Blender 进程。
 
 ## 验证与诊断

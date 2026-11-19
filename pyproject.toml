@@ -44,7 +44,7 @@ motionviewer = "motionviewer.cli:app"
 
 [project.urls]
 Homepage = "https://github.com/OMEGA-i/MotionViewer"
-Documentation = "https://github.com/OMEGA-i/MotionViewer/blob/main/README.md"
+Documentation = "https://github.com/OMEGA-i/MotionViewer/blob/main/docs/architecture.md"
 Issues = "https://github.com/OMEGA-i/MotionViewer/issues"
 Source = "https://github.com/OMEGA-i/MotionViewer"
 

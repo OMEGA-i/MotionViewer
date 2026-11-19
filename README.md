@@ -83,16 +83,29 @@ The repository contains small motion examples only. These paths remain local and
 - `assets/` — downloaded FBX/PMX characters and local catalogs
 - `data/raw/`, `data/local/`, `data/packages/` — research inputs, archives, and caches
 - `outputs/` — rendered frames, videos, manifests, and audits
-- `docs/` — local notes
 - Blender addon data and SMPL-X weights
 
-Do not remove these ignore rules without checking redistribution terms. Data layout is described in [data/README.md](data/README.md).
+Do not remove these ignore rules without checking redistribution terms. See [asset setup](docs/assets.md) and [data layout](data/README.md).
 
 ## Development tools
 
 The committed `.mcp.json` starts `blender-mcp` for interactive Blender sessions. Blender-MCP cannot serve commands from a background `blender -b` process; MotionViewer's CLI uses packaged Blender entry scripts for headless work.
 
 Project instructions are hierarchical: start with [AGENTS.md](AGENTS.md), then follow the nearest module-level `AGENTS.md`.
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Blender and addon setup](docs/blender-setup.md)
+- [Render jobs](docs/render-jobs.md)
+- [Motion formats](docs/formats.md)
+- [Sample Packing Protocol](docs/package_protocol.md)
+- [Package workflows](docs/archives.md)
+- [Retargeting](docs/retarget.md)
+- [Adding a downloaded character](docs/characters.md)
+- [Reading SOMA-77 directly](docs/soma-direct.md)
+- [Visualising a T2M dataset](docs/dataset-visualisation.md)
+- [Visual style](docs/visual-style.md)
 
 ## License
 

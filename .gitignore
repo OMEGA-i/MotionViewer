@@ -19,6 +19,15 @@ dist/
 .claude/
 skills-lock.json
 
+# Internal handoffs, status notes, and local experiment records.
+/HANDOFF.md
+/项目现状.md
+/docs/g1-teaser-handoff.md
+/docs/history/
+/docs/repo-layout.md
+/data/measurements/
+/data/picks_backup/
+
 # Local motion data. Only curated, redistributable examples are versioned.
 data/raw/
 data/local/

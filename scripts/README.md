@@ -36,9 +36,7 @@
 | 动作质量 | [`score_motion_quality.py`](score_motion_quality.py)、[`_diagnose_motion.py`](_diagnose_motion.py) |
 | 合图与视频抽检 | [`_compose_sheet.py`](_compose_sheet.py)、[`qc_contact_sheet.py`](qc_contact_sheet.py) |
 
-历史测量保存在 [`data/measurements/`](../data/measurements/README.md)。其中
-`skirt_physics.json` 的 `lower_share` 已知选错顶点范围，不能作为裙子质量的验收指标；
-`_probe_cloth_motion.py` 的时序相关性也不能判断裙片是否变形。新结果须同时看图或视频。
+`_probe_cloth_motion.py` 的时序相关性不能判断裙片是否变形。新结果须同时看图或视频。
 `_check_hand_clipping.py` 是旧的采样启发式，开放网格上的内外判断不可靠，不能单独作为
 “没有穿模”的验收依据。新道具报告会注明实际采样/三角检测的范围和剩余问题。
 
@@ -75,8 +73,7 @@
 路径可用 `MOTIONVIEWER_G1_DIR`、`MOTIONVIEWER_SONIC_POLICY`、`MOTIONVIEWER_SOMA_DIR`、
 `MOTIONVIEWER_SOMA_ORIENT`、`MOTIONVIEWER_PICKS39_CSV` 和 `MOTIONVIEWER_G1_WORK` 覆盖。
 依赖 `mujoco`、`onnxruntime`、`scipy`，重定向另需本机的 `soma-retargeter`。
-论文静帧光追仍在本地 `outputs/g1_generated_gallery/scripts/`。说明见
-[G1 仿真交接](../docs/g1-teaser-handoff.md)。
+论文静帧光追脚本留在本地 `outputs/g1_generated_gallery/scripts/`。
 
 ## 整理时必须保留的调用关系
 
@@ -87,5 +84,4 @@
 - 多个批处理入口按 `scripts/<文件名>.py` 调用渲染器；测试也直接使用这些路径。
 
 部分诊断脚本仍有本机数据路径或固定输出路径。运行前查看文件头和参数；
-不要用历史实验默认值覆盖新结果。原始模型、动作、手选记录和成品的位置见
-[项目目录说明](../docs/repo-layout.md)。
+不要用历史实验默认值覆盖新结果。原始模型、动作和成品留在仓库外。

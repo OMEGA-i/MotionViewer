@@ -18,8 +18,6 @@
 | `figures/figures.json` | 历史生成记录 | 当前没有对应的整套论文图文件，不能当成现成图集 |
 
 旧文档中的 `showcase/`、`showcase_cast/` 和 `figures/yoimiya/` 当前不在此目录中。
-历史实验视频和截图在 [`outputs/archive/2026-10-22/`](../outputs/archive/2026-10-22/README.md)，
-完整目录说明见 [项目地图](../docs/repo-layout.md)。
 
 ## 新结果如何保存
 
@@ -28,16 +26,7 @@
 放到对应的 `outputs/<本次任务>/`。检查动作、脚部接触、布料、手部和贴图后再决定
 是否作为成品保留，避免覆盖 `final/` 中用于对照的旧视频。
 
-```bash
-uv run python scripts/visualize_dataset.py \
-  --data "/Users/a26044/Motion data/t2m_demo400/smplx" \
-  --task active --clips 100948 --character yoimiya --physics bullet \
-  --output converted/review_20261022
-```
-
-以上批量命令使用 SMPL-X 拟合副本；原生生成展示优先采用项目 README 中的 SOMA 单条入口。
-命令从项目根目录执行，使用本地已存在的数据与角色。
-后台渲染直接启动 Blender，不依赖 Blender-MCP。
+批量入口生成 MP4、`index.html` 和运行记录。单条渲染的帧和诊断放到对应的 `outputs/<本次任务>/`。
 更多入口见 [脚本导航](../scripts/README.md) 和 [数据集渲染说明](../docs/dataset-visualisation.md)。
 
 ## 本地文件与授权

@@ -17,6 +17,7 @@
 | `scripts/visualize_dataset.py` | 批量生成 MP4、浏览页和运行记录 |
 | `scripts/render_mmd_compare.py` | 单条动作的角色与源骨架渲染 |
 | `scripts/render_paper_figure.py` | 论文静帧 |
+| `scripts/g1/` | Unitree G1 重定向、SONIC 闭环仿真和视觉 FK；产物在 `outputs/g1_sim/` |
 | `scripts/archive/` | 明确归档的旧脚本及原因；不作为当前默认入口 |
 | `tests/`、`configs/examples/` | 自动检查与通用任务示例 |
 

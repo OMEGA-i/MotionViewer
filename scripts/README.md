@@ -62,6 +62,22 @@
 复查用 `--soma`；`visualize_dataset.py` 当前的数据集校验仍针对 SMPL-X body-22，
 不能把拟合的无手指副本当作原始 SOMA 手部展示。
 
+## Unitree G1 闭环仿真
+
+| 工作 | 入口 |
+| --- | --- |
+| SOMA-77 朝向校准并重定向到 G1 | [`g1/retarget_candidates.py`](g1/retarget_candidates.py) |
+| GEAR-SONIC 200 Hz MuJoCo 跟踪 | [`g1/simulate_sonic_g1.py`](g1/simulate_sonic_g1.py) |
+| 视觉网格与世界系 FK | [`g1/export_g1_fk.py`](g1/export_g1_fk.py) |
+| 本机仿真并直接导出 FK | [`g1/run_local_g1_sim_and_fk.py`](g1/run_local_g1_sim_and_fk.py) |
+
+机器人 XML、SONIC 权重和 SOMA 片段都在仓库外。产物写到 `outputs/g1_sim/`。
+路径可用 `MOTIONVIEWER_G1_DIR`、`MOTIONVIEWER_SONIC_POLICY`、`MOTIONVIEWER_SOMA_DIR`、
+`MOTIONVIEWER_SOMA_ORIENT`、`MOTIONVIEWER_PICKS39_CSV` 和 `MOTIONVIEWER_G1_WORK` 覆盖。
+依赖 `mujoco`、`onnxruntime`、`scipy`，重定向另需本机的 `soma-retargeter`。
+论文静帧光追仍在本地 `outputs/g1_generated_gallery/scripts/`。说明见
+[G1 仿真交接](../docs/g1-teaser-handoff.md)。
+
 ## 整理时必须保留的调用关系
 
 - `pick_clips.py` 导入 `visualize_dataset.py`；后者导入 `score_motion_quality.py`。

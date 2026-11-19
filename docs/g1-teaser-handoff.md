@@ -55,17 +55,17 @@
 
 ## 3. 技术管线架构与踩坑备忘（接手必读）
 
-整套流水线位于 `outputs/g1_generated_gallery/scripts/`，分为 4 个解耦阶段，任何后续 Agent 或开发者都可单独重跑其中一环：
+闭环仿真的版本化入口在 `scripts/g1/`（输出写到被 Git 忽略的 `outputs/g1_sim/`）。居家场景光追和拼版仍在本地 `outputs/g1_generated_gallery/scripts/`。流水线分为 4 个解耦阶段，任何后续开发者都可单独重跑其中一环：
 
 ### 阶段 1：原生 SOMA-77 → 朝向校准 BVH → Unitree G1 50Hz 重定向
-- **脚本**：`retarget_candidates.py`
+- **脚本**：`scripts/g1/retarget_candidates.py`
 - **核心细节（踩坑点 1）**：
   - 我们的 `.soma.npz` 中 `rotmat77` 是局部旋转，链式相乘得到纯父子世界旋转 `W(j)`；而 NVIDIA 官方 `soma-retargeter` 期望输入的 BVH 隐含 `W(j) @ O[j]`（其中 `O[j]` 是 `soma_joint_orient.npz` 中的 78 关节静态参考系）。
   - 脚本内通过共轭变换 `L'(k) = O[parent]^T @ L(k) @ O[k]` 与骨长实测恢复（`bone_lengths`），与原始 `joints77` 的正向运动学位置误差验证为 **`0.000 mm`**。
   - 调用 `soma_retargeter.pipelines.newton_pipeline.NewtonPipeline(skel, "soma", "unitree_g1")` 在 CUDA 上执行 24 步 LM IK + 脚底稳定器（`feet_stabilizer`），输出 50 Hz CSV。
 
 ### 阶段 2：NVIDIA `GEAR-SONIC` 200Hz MuJoCo 闭环物理跟踪仿真
-- **脚本**：`simulate_sonic_g1.py`
+- **脚本**：`scripts/g1/simulate_sonic_g1.py`。本机同时跑仿真和视觉 FK 时用 `scripts/g1/run_local_g1_sim_and_fk.py`。
 - **依赖模型**：HuggingFace `nvidia/GEAR-SONIC` 发布的 `model_encoder.onnx`（输入 1762 维，输出 64 维 token）+ `model_decoder.onnx`（输入 994 维，输出 29 维动作）+ `observation_config.yaml`。
 - **核心细节（踩坑点 2 & 3）**：
   - **关节顺序映射**：MuJoCo XML 与 `soma-retargeter` CSV 采用 **DFS 顺序**（左腿6 → 右腿6 → 腰3 → 左臂7 → 右臂7），而 SONIC 策略观测与输出动作采用 **IsaacLab BFS 顺序**。必须在观测输入侧用 `MUJOCO_TO_ISAACLAB` 置换，在动作输出侧用 `ISAACLAB_TO_MUJOCO` 还原（常量严格取自 `policy_parameters.hpp`）。
@@ -73,7 +73,7 @@
   - **冷启动伪帧剔除**：`soma-retargeter` 输出的 CSV 第 0 行是 IK 种子帧（与第 1 行跳变约 29°），脚本自动剔除冷启动跳变帧并在第 0 帧做 15 个控制周期（0.3s）物理驻留沉降后再开始跟踪，35+ 条生成动作闭环不倒率达 **97%+**。
 
 ### 阶段 3：G1 非重叠视觉网格与世界系 FK 导出
-- **脚本**：`export_g1_fk.py`
+- **脚本**：`scripts/g1/export_g1_fk.py`
 - **核心细节（踩坑点 4）**：
   - `g1_29dof.xml` 中每个连杆同时定义了 `group=1, contype=0` 的视觉网格和 `group=0, contype=1` 的同名碰撞网格。导出到 Blender 时**必须只保留 `group == 1` 的 36 个视觉几何体**，否则两个完全重合的网格会在 Cycles 光追中产生严重的黑斑 Z-fighting。
   - 自动读取 `left_rubber_hand` / `right_rubber_hand` 等完整手部网格，并按全片段最低支撑脚底第 10 分位校准 `z = 0.000 m`，保证既不悬空也不穿地。
@@ -129,8 +129,8 @@ PY
 若后续节点释放、在新容器节点重跑（`/home/a26163` 为 CephFS 持久化共享盘，`soma-retargeter`、`GR00T-WholeBodyControl` 与 `t2m_demo400` 均永久保留在 `~/projects/` 下），只需执行：
 
 ```bash
-# 1. 把本地保存的脚本推到新节点
-scp -P <NEW_PORT> -r outputs/g1_generated_gallery/scripts a26163@<HOST>:/tmp/g1_teaser_scripts
+# 1. 把版本化的仿真脚本推到新节点（光追脚本仍在本地 outputs/g1_generated_gallery/scripts）
+scp -P <NEW_PORT> -r scripts/g1 a26163@<HOST>:/tmp/g1_teaser_scripts
 
 # 2. 在新节点一键拉起 Blender 4.5 LTS + MuJoCo/ONNX 环境 + SONIC 权重
 ssh -p <NEW_PORT> a26163@<HOST> '
@@ -150,6 +150,8 @@ ssh -p <NEW_PORT> a26163@<HOST> '
 #   (a) 重定向新 SOMA 动作：cd ~/projects/third_party/soma-retargeter && .venv/bin/python /tmp/g1_teaser/retarget_candidates.py
 #   (b) SONIC 200Hz 闭环物理仿真：/tmp/g1_teaser/.venv/bin/python /tmp/g1_teaser/simulate_sonic_g1.py
 #   (c) 导出 G1 视觉网格与 FK：/tmp/g1_teaser/.venv/bin/python /tmp/g1_teaser/export_g1_fk.py
+#   默认产物目录是仓库下的 outputs/g1_sim/。集群上可设 MOTIONVIEWER_G1_WORK=/tmp/g1_teaser，
+#   以及 MOTIONVIEWER_G1_DIR、MOTIONVIEWER_SONIC_POLICY、MOTIONVIEWER_SOMA_DIR、MOTIONVIEWER_SOMA_ORIENT。
 #   (d) Blender OptiX 渲染与合成：/tmp/g1_teaser/blender/blender -b -P /tmp/g1_teaser/render_gallery_18.py && /tmp/g1_teaser/.venv/bin/python /tmp/g1_teaser/compose_gallery_18.py
 ```
 

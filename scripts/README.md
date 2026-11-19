@@ -15,8 +15,6 @@
 | 新角色检查 | [`onboard_character.py`](onboard_character.py) | `uv run python`；自动启动 Blender |
 | 双视角握持检查 | [`_render_grip.py`](_render_grip.py) | Blender `--background --python` |
 
-参数与示例见 [数据集渲染](../docs/dataset-visualisation.md)、
-[角色导入](../docs/characters.md)、[重定向](../docs/retarget.md)。
 后台渲染直接调用 Blender，不要求连接 Blender-MCP。不要同时启动超过三个 Blender 进程。
 
 ## 验证与诊断
@@ -56,7 +54,7 @@
 早期入口保留用于复查旧结果；它们不一定使用当前批量入口的参数和物理设置。
 
 `render_mmd_compare.py --physics-profile <JSON> --bullet` 使用与角色文件哈希绑定的
-服装配置，详见 [角色物理配置](../docs/character-physics-profiles.md)。原生 SOMA
+服装配置。原生 SOMA
 复查用 `--soma`；`visualize_dataset.py` 当前的数据集校验仍针对 SMPL-X body-22，
 不能把拟合的无手指副本当作原始 SOMA 手部展示。
 

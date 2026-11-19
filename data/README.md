@@ -25,8 +25,7 @@ Render configs should reference files under `data/` with paths relative to the c
 
 ## `packages/`
 
-Imported Sample Packing Protocol **v2.0** archives (see `docs/archives.md` and
-`docs/package_protocol.md`). Use `motionviewer package import` to validate and
+Imported Sample Packing Protocol **v2.0** archives. Use `motionviewer package import` to validate and
 copy a `.tar.gz` as-is:
 
 ```text

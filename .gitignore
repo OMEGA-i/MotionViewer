@@ -19,12 +19,10 @@ dist/
 .claude/
 skills-lock.json
 
-# Internal handoffs, status notes, and local experiment records.
+# Internal notes and local experiment records. Not published.
 /HANDOFF.md
 /项目现状.md
-/docs/g1-teaser-handoff.md
-/docs/history/
-/docs/repo-layout.md
+/docs/
 /data/measurements/
 /data/picks_backup/
 
